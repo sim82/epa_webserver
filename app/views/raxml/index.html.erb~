@@ -1,0 +1,53 @@
+<h1>RAxML</h1>
+
+<% form_tag ({:action => 'submitJob'},:multipart => true) do %>
+
+<p><label for="upload_file">Select Alignment File</label> : 
+  <%= file_field 'upload', 'upfile' %></p>
+
+<p><label for = "query">DNA</label>
+  <input  id="query_DNA" name="query" type="radio" value="DNA" checked="checked" onclick="document.getElementById('DNA').style.visibility='visible';document.getElementById('AA').style.visibility='hidden'" />
+  AA<input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.visibility='hidden';document.getElementById('AA').style.visibility='visible'"/>
+
+
+<p><label for = "speed">Speed</label> : <br>
+  fast<%= radio_button_tag 'speed', 'y', true%>
+  slow<%= radio_button_tag 'speed', 'v'%></p>
+
+<!-- DNA models -->
+<div id="DNA" style="visibility:visible" >
+  
+  <p><label for = "dna_substmodel">Models </label> : 
+    <%= select_tag "dna_substmodel", "#{@dna_model_options}" %></p>
+</div>
+
+<!-- Amino Acid modelss -->
+<div id="AA" style="visibility:hidden">
+  <p><label for = "aa_substmodel">Models </label> : 
+    <%= select_tag "aa_substmodel", "#{@aa_model_options}" %>
+    <%= select_tag "matrix", "#{@aa_matrices}" %>
+    <%= text_field "sm_float", "smf", :size =>4 %></p>
+  
+  
+</div>
+<input type="button" name="optBut" value="show more options" onclick="optionalButton('optional','optBut')">
+<!-- Optional parameters for RAxML -->  
+<div id="optional" style="visibility:hidden">
+  <p><label for = "heuristic">Heuristic </label> : 
+    <%= select_tag "heuristic", "#{@heuristics}" %>
+    <%= text_field "heu_float", "hf", :size =>4 %></p>
+  <p><label for="tree_file">Select Tree File</label> : 
+    <%= file_field 'treefile', 'file' %></p>
+</div>
+
+
+<br>
+<p><label for="wait">Wait</label> :
+  <%= text_field "wait", "time", :size => 5 %></p> 
+<p><label for="email">Email</label> : 
+  <%= text_field "email", "e", :size =>40 %></p> 
+<%= submit_tag "Submit" %>
+<% end %>
+
+
+

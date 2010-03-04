@@ -1,0 +1,18 @@
+<html>
+  <title><%= @title || "RAxML" %></title>
+  <%= javascript_include_tag "application" %>
+  <style type="text/css"></style>
+  <body>
+    <table width="100%">
+      <tr height="100">
+        <td width="100"></td><td></td>
+      </tr>
+      <tr>
+        <td></td><td><%=yield %></td>
+      </tr>
+      <tr>
+        <td></td><td></td>
+      </tr>
+    </table>
+  </body>
+</html>

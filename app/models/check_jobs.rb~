@@ -1,0 +1,20 @@
+#!/usr/bin/ruby
+
+RAILS_ENV = ENV['RAILS_ENV'] = ENV['RACK_ENV']
+require 'rubygems'
+require '/home/denis/work/RAxMLWS/app/models/raxml.rb'
+
+class CheckJobs 
+
+  def initialize
+  end
+
+  def run
+
+    raxmls = Raxml.find :all , :conditions => {:email => 'Denis.Krompass@campus.lmu.de'}
+    raxmls.each  {|r| puts r.id}
+  
+  end
+end
+
+CheckJobs.new.run
