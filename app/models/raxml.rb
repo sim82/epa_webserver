@@ -1,5 +1,7 @@
+require 'raxml_alignmentfile_parser'
+
 class Raxml < ActiveRecord::Base
-  
+
   validates_presence_of :alifile, :treefile
   validates_format_of :email, :with => /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i , :on => :save, :message => "Invalid address", :allow_blank => true
 
@@ -27,7 +29,13 @@ class Raxml < ActiveRecord::Base
   
   def validate
     puts self.alifile
-
+    puts self.alifile
+    f = RaxmlAlignmentfileParser.new(self.alifile)
+    puts "**************"
+    puts f.error
+    puts f.format
+    puts f.valid_format
+    puts "**************"
   end
 
   def execude(link)
