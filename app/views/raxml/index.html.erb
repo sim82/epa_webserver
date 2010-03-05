@@ -1,30 +1,33 @@
 <h1>RAxML</h1>
 
 
-<% error_messages_for :raxml %>
-<% if (!(@rax.nil?)) && @rax.errors %>
-<% @rax.errors.each do |field,error| %>
-<%= field+" => "+error%>
-<% end end %>
+<%= error_messages_for :raxml, :header_message => "There were #{@raxml.errors.size} errors in your input!" %>
+
 <% form_tag ({:action => 'submitJob'},:multipart => true) do %>
 
-<p><label for="upload_file">Select Alignment File</label> : 
-  <%= file_field 'upload', 'upfile' %></p>
+<p><label for="raxml_alifile">Select Alignment File</label> : 
+  <%= file_field 'raxml', 'alifile' %>
+</p>
+<p><label for="tree_file">Select Tree File</label> : 
+  <%= file_field 'treefile', 'file' %>
+</p>
+
 
 <p><label for = "query">DNA</label>
   <input  id="query_DNA" name="query" type="radio" value="DNA" checked="checked" onclick="document.getElementById('DNA').style.visibility='visible';document.getElementById('AA').style.visibility='hidden'" />
   AA<input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.visibility='hidden';document.getElementById('AA').style.visibility='visible'"/>
-
+</p>
 
 <p><label for = "speed">Speed</label> : <br>
   fast<%= radio_button_tag 'speed', 'y', true%>
-  slow<%= radio_button_tag 'speed', 'v'%></p>
+  slow<%= radio_button_tag 'speed', 'v'%>
+</p>
 
 <!-- DNA models -->
-<div id="DNA" style="visibility:visible" >
-  
+<div id="DNA" style="visibility:visible" >  
   <p><label for = "dna_substmodel">Models </label> : 
-    <%= select_tag "dna_substmodel", "#{@dna_model_options}" %></p>
+    <%= select_tag "dna_substmodel", "#{@dna_model_options}" %>
+  </p>
 </div>
 
 <!-- Amino Acid modelss -->
@@ -32,28 +35,31 @@
   <p><label for = "aa_substmodel">Models </label> : 
     <%= select_tag "aa_substmodel", "#{@aa_model_options}" %>
     <%= select_tag "matrix", "#{@aa_matrices}" %>
-    <%= text_field_tag "sm_float", "", :size =>4 %></p>
-  
-  
+    <br> use empirical base frequencies <%= check_box_tag "sm_float", "[F]"%>
+  </p>
 </div>
+
 <input type="button" name="optBut" value="show more options" onclick="optionalButton('optional','optBut')">
 <!-- Optional parameters for RAxML -->  
 <div id="optional" style="visibility:hidden">
   <p><label for = "heuristic">Heuristic </label> : 
     <%= select_tag "heuristic", "#{@heuristics}" %>
-    <%= text_field_tag "heu_float","", :size =>4 %></p>
-  <p><label for="tree_file">Select Tree File</label> : 
-    <%= file_field 'treefile', 'file' %></p>
+    <%= select_tag "heu_float","#{@heuristics_values}"%>
+  </p>
 </div>
 
 
 <br>
 <p><label for="wait">Wait</label> :
-  <%= text_field_tag "wait", "", :size => 5 %></p> 
-<p><label for="email">Email</label> : 
-  <%= text_field_tag "email",nil,  :size =>40 %></p> 
+  <%= text_field_tag "wait", "", :size => 5 %>
+</p> 
+<p><label for="raxml_email">Email</label> : 
+  <%= text_field_tag "rax_email",nil,  :size =>40 %>
+</p> 
 <%= submit_tag "Submit" %>
 <% end %>
-
+<% form_tag ({:action => 'index'},:multipart => true) do %>
+<%= submit_tag "Reset" %>
+<% end%>
 
 

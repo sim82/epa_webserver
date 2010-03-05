@@ -1,17 +1,34 @@
 class Raxml < ActiveRecord::Base
   
-  validates_presence_of :alifile
-  validates_format_of :email, :with => /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i , :on => :save, :message => "Invalid email adress", :allow_blank => true
-  validates_each :heuristics :allow_blank => 'true' do |record, attr, value|
-    if (value =~ /^\w+\s+([01])$/  ||   value =~ /^\w+\s+([01]\.{0,1}\d+)$/)
-      record.errors.add attr, 'Heuristic value has to be between 0 and 1' if ($1.to_f > 1.0 || $1.to_f < 0.0)
+  validates_presence_of :alifile, :treefile
+  validates_format_of :email, :with => /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i , :on => :save, :message => "Invalid address", :allow_blank => true
+
+  validates_each :heuristic  do |record, attr, value|
+    if (value =~ /^\w+\_([\d+])$/ || value =~ /^\w+\_([\d+]\.{0,1}\d+)$/ )
+      record.errors.add attr, 'value has to be between 0 and 1' if ($1.to_f > 1.0 || $1.to_f < 0.0)
+    elsif value =~ /^\w+\_.+$/
+      record.errors.add attr, 'value is not numeric'
+    elsif !(value =~ /^none$/) && value =~ /\w+\_$/ 
+      record.errors.add attr, 'value can\'t be blank when heuristic procedure is selected'
+    end
+  end
+
+  validates_each :substmodel do |record,attr,value|
+    if (value =~ /^\w+_\w+\_([\d+])$/  ||   value =~ /^\w+_\w+\_([\d+]\.{0,1}\d+)$/)
+      record.errors.add attr, 'value has to be between 0 and 1' if ($1.to_f > 1.0 || $1.to_f < 0.0)
+    elsif value =~ /^\w+_\w+\_$/
+      record.errors.add attr, 'value for amino acids can\'t be blank'
+    elsif value =~ /^[A-Za-z]+$/
+      #DNA selected
     else
-      record.errors.add attr, 'Heuristic value is not numeric'
+      record.errors.add attr, 'value is not numeric'
     end
   end
   
+  def validate
+    puts self.alifile
 
-
+  end
 
   def execude(link)
     #RAxML command with parameters
@@ -48,14 +65,5 @@ class Raxml < ActiveRecord::Base
       return false
     end      
   end
-
-
-  def Raxml.isNumeric?(s)
-    if Float(s) rescue  return false # not numeric
- 
-    else
-    return true # numeric
-  end
-
 
 end

@@ -2,10 +2,10 @@ class RaxmlController < ApplicationController
   
   def index
     @dna_model_options = ""
-    models = ["GTRGAMMA","GTRCAT"]
+    models = ["GTRGAMMA","GTRCAT","GTRCAT_FLOAT", "GTRCATI", "GTRGAMMA_FLOAT","GTRGAMMAI"]
     models.each {|m| @dna_model_options= @dna_model_options+"<option>#{m}</option>"}
     @aa_model_options = ""
-    models = ["PROTGAMMA","PROTCAT"]
+    models = ["PROTGAMMA","PROTGAMMAI","PROTCAT","PROTCATI"]
     models.each {|m| @aa_model_options= @aa_model_options+"<option>#{m}</option>"}
     @aa_matrices = ""
     matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG", "GTR"]
@@ -13,22 +13,29 @@ class RaxmlController < ApplicationController
     @heuristics =""
     heuristics = ["none","MP","MC"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
+    @heuristics_values =""
+    heuristics_values = ["0.5","0.333","0.25","0.2","0.167","0.142","0.125","0.111","0.1"]
+    heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
+    @raxml = Raxml.new
   end
 
   def submitJob
     
     @dna_model_options = ""
-    models = ["GTRGAMMA","GTRCAT"]
+    models = ["GTRGAMMA","GTRCAT","GTRCAT_FLOAT", "GTRCATI", "GTRGAMMA_FLOAT","GTRGAMMAI"]
     models.each {|m| @dna_model_options= @dna_model_options+"<option>#{m}</option>"}
     @aa_model_options = ""
-    models = ["PROTGAMMA","PROTCAT"]
+    models = ["PROTGAMMA","PROTGAMMAI","PROTCAT","PROTCATI"]
     models.each {|m| @aa_model_options= @aa_model_options+"<option>#{m}</option>"}
     @aa_matrices = ""
     matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG", "GTR"]
     matrices.each {|m| @aa_matrices= @aa_matrices+"<option>#{m}</option>"}
     @heuristics =""
-    heuristics = ["none","MP","MC"]
+    heuristics = ["none","MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
+    @heuristics_values =""
+    heuristics_values = ["0.5","0.333","0.25","0.2","0.167","0.142","0.125","0.111","0.1"]
+    heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
     
     @direcrory = nil
     
@@ -37,7 +44,7 @@ class RaxmlController < ApplicationController
     @substmodel = ""
     @matrix = nil
     @sm_float = nil
-    if @type.eql?("DNA")
+    if @query.eql?("DNA")
       @substmodel = "#{params[:dna_substmodel]}"
     else
       @substmodel = params[:aa_substmodel]
@@ -50,35 +57,35 @@ class RaxmlController < ApplicationController
     @heu_float = "" 
     if !@heuristic.eql?("none")
       @heu_float = params[:heu_float]
+      @heuristic = @heuristic+"_"+@heu_float
     end
-    @heuristic = @heuristic+"_"+@heu_float
+#    @heuristic = @heuristic+"_"+@heu_float
 
     @wait = params[:wait]
-    @email = params[:email]
+    @email = params[:rax_email]
     @outfile = ""
     @alifile = ""
     @pid = 0
 
-    @rax = Raxml.new({ :alifile =>params[:upload][:upfile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => @treefile, :email => @email, :pid => @pid, :wait => @wait})
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :pid => @pid, :wait => @wait})
     
     
-    if @rax.save
-      buildJobDir(@rax)
-      @alifile = saveInfile(params[:upload][:upfile])
-      @rax.update_attribute(:alifile,@alifile)
-      @rax.update_attribute(:outfile,@directory+"results.txt")
+    if @raxml.save
+      buildJobDir(@raxml)
+      @alifile = saveInfile(params[:raxml][:alifile])
+      @raxml.update_attribute(:alifile,@alifile)
+      @raxml.update_attribute(:outfile,@directory+"results.txt")
 
-      if !(params[:treefile][:file].nil?)
-        @treefile = saveInfile(params[:treefile][:file])
-        @rax.update_attribute(:treefile,@treefile)
-      end
-
-      link = url_for :controller => 'raxml', :action => 'results', :id => @rax.id
-      @rax.execude(link)
-      redirect_to :action => 'wait', :id => @rax.id 
+      @treefile = saveInfile(params[:treefile][:file])
+      @raxml.update_attribute(:treefile,@treefile)
+      
+      link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.id
+      @raxml.execude(link)
+      sleep 2
+      redirect_to :action => 'wait', :id => @raxml.id 
     else
       puts "#############"
-      @rax.errors.each do |field, error|
+      @raxml.errors.each do |field, error|
         puts field
         puts error
       end
@@ -98,7 +105,6 @@ class RaxmlController < ApplicationController
   end
    
   def wait
-    sleep 2
     rax = Raxml.find_by_id(params[:id])
     if pidAlive?(rax.pid)
       render :action => "wait"
