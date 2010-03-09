@@ -122,22 +122,7 @@ class RaxmlController < ApplicationController
 
   def results
     rax = Raxml.find_by_id(params[:id])    
-#    if rax.emailValid?
-#      sendEmail(rax.email,rax.id)
-#    end
     @results =  RaxmlResultsParser.new(rax.outfile).data
   end
 
-  def sendEmail(recipient,id) ### not in use
-    subject = "Your RAxML job has been finished"
-    link = url_for :controller => 'raxml', :action => 'results', :id => id
-    Emailer.deliver_email(recipient, subject, link)
-    return if request.xhr?
-  end
-  
-  def saveEmail ### not in use
-    rax = Raxml.find_by_id(params[:id])
-    rax.update_attribute(:email, params[:email][:e])
-    redirect_to :action => 'wait' , :id => params[:id]
-  end
 end
