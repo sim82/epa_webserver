@@ -76,7 +76,7 @@ class RaxmlController < ApplicationController
       @raxml.update_attribute(:alifile,@alifile)
       @raxml.update_attribute(:outfile,@directory+"results.txt")
 
-      @treefile = saveInfile(params[:treefile][:file].read, "tree_file")
+      @treefile = saveInfile(@raxml.treefile, "tree_file")
       @raxml.update_attribute(:treefile,@treefile)
       
       link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.id

@@ -1,4 +1,5 @@
 require 'raxml_alignmentfile_parser'
+require 'raxml_treefile_parser'
 
 class Raxml < ActiveRecord::Base
 
@@ -28,9 +29,14 @@ class Raxml < ActiveRecord::Base
   end
   
   def validate
-    f = RaxmlAlignmentfileParser.new(self.alifile)
-    self.alifile = f.data
-    errors.add(:alifile, f.error) if !(f.valid_format)
+    if !(self.alifile.eql?("")) && !(self.treefile.eql?(""))
+      f = RaxmlAlignmentfileParser.new(self.alifile)
+      self.alifile = f.data
+      errors.add(:alifile, f.error) if !(f.valid_format)
+      t = RaxmlTreefileParser.new(self.treefile)
+      self.treefile = t.data
+      errors.add(:treefile, t.error) if !(t.valid_format)
+    end
   end
 
   def execude(link)
