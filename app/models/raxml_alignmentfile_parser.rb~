@@ -1,0 +1,15 @@
+class RaxmlAlignmentfileParser
+
+  def initialize(stream)
+    data = []
+    data = stream.read
+    puts data
+    puts data.size
+  end
+
+  def return_format
+
+  end
+
+end
+

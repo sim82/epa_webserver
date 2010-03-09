@@ -1,7 +1,4 @@
-
-require 'pty'
-
-class RaxmlAlignmentfileParser
+class RaxmlTreefileParser
   
 attr_reader :format, :valid_format, :error ,:data
   def initialize(stream)
@@ -17,7 +14,6 @@ attr_reader :format, :valid_format, :error ,:data
   def check_format
     i = 0
     while i < @data.size
-
       if @data[i] =~ /^>/ && @data[i+1]=~ /^[A-Z\-]+/ #fasta
         @format = "fas"
         @valid_format = true
@@ -31,36 +27,21 @@ attr_reader :format, :valid_format, :error ,:data
           end
         j = j+1
         end
-
       elsif @data[i] =~ /^\d+\s\d+/  #phylip
         @format = "phl"
         @valid_format = true
-        random_number = (1+rand(10000))* (1+(10000%(1+rand(10000))))*(1+rand(10000)) #build random number for @filename to avoid collision
-        file = "#{RAILS_ROOT}/tmp/files/#{random_number}_#{@filename}" ### change before production phase
-        f = File.open(file,'wb')
-        @data.each {|d| f.write(d)}
-        f.close
-        cmd = "#{RAILS_ROOT}/bioprogs/raxml/raxmlHPC  -s #{file} -fc -m GTRGAMMA -n test"
-        # let RAxML check if phylip format is correct
-        PTY.spawn(cmd) do |stdin, stdout, pid| 
-	  
-          stdin.each do  |line| 
-            if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/)
-              @error = @error+line
-              @format = "unk"
-              @valid_format = false
-            end
+        j = i+1
+        while j < @data.size
+          if !(@data[j] =~ /^\w+\d+\s+[A-Z\-]+/)
+            @format = "unk"
+            @valid_format = false
+            @error = "Unknown file format!(File seems to be phylip formatted)\n ParserError :: #{@filename} line: #{j}\n *#{@data[j]}*"
+            return
           end
-        end rescue Errno::EIO
-        if !@error.eql?("")
-           @error = "Unknown file format!(File seems to be phylip formatted)\n ParserError :: #{@filename}\n#{@error}"
+        j = j+1
         end
-        system "rm #{file}"
-        break
-
       elsif @data[i] =~ /^\s+$/ # blank lines are ignored
         #do nothing
-
       else
         @error = "Unknown format, file not parsable!"
         break
@@ -68,5 +49,5 @@ attr_reader :format, :valid_format, :error ,:data
       i = i+1
     end
   end
-end
 
+end

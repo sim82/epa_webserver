@@ -72,11 +72,11 @@ class RaxmlController < ApplicationController
     
     if @raxml.save
       buildJobDir(@raxml)
-      @alifile = saveInfile(params[:raxml][:alifile])
+      @alifile = saveInfile(@raxml.alifile, "alignment_file")
       @raxml.update_attribute(:alifile,@alifile)
       @raxml.update_attribute(:outfile,@directory+"results.txt")
 
-      @treefile = saveInfile(params[:treefile][:file])
+      @treefile = saveInfile(params[:treefile][:file].read, "tree_file")
       @raxml.update_attribute(:treefile,@treefile)
       
       link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.id
@@ -84,7 +84,6 @@ class RaxmlController < ApplicationController
       sleep 2
       redirect_to :action => 'wait', :id => @raxml.id 
     else
-      puts "#############"
       @raxml.errors.each do |field, error|
         puts field
         puts error
@@ -98,10 +97,11 @@ class RaxmlController < ApplicationController
     Dir.mkdir(@directory) rescue system("rm -r #{@directory}; mkdir #{@directory}")
   end
 
-  def saveInfile(stream)
-    file = @directory+stream.original_filename
-    File.open(file, "wb") { |f| f.write(stream.read) }
-    return file
+  def saveInfile(stream, file_name)
+    file_name = @directory+file_name
+    #file = @directory+stream.original_filename
+    File.open(file_name, "wb") { |f| f.write(stream) }
+    return file_name
   end
    
   def wait

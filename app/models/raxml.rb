@@ -28,14 +28,9 @@ class Raxml < ActiveRecord::Base
   end
   
   def validate
-    puts self.alifile
-    puts self.alifile
     f = RaxmlAlignmentfileParser.new(self.alifile)
-    puts "**************"
-    puts f.error
-    puts f.format
-    puts f.valid_format
-    puts "**************"
+    self.alifile = f.data
+    errors.add(:alifile, f.error) if !(f.valid_format)
   end
 
   def execude(link)
