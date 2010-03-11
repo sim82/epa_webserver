@@ -9,6 +9,7 @@ class RaxmlAndSendEmail
     @raxml_options = Hash.new
     @email_address = ""
     @link = ""
+    @id = ""
     options_parser!(opts)
     run_raxml
     if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
@@ -20,22 +21,17 @@ class RaxmlAndSendEmail
   def options_parser!(opts)
     i = 0
     while i < opts.size
-      if opts[i].eql?("-wait")
-        @raxml_options["-wait"] = opts[i+1]
-        i = i+1
-      elsif opts[i].eql?("-s")
+      if opts[i].eql?("-s")
         @raxml_options["-s"] = opts[i+1]
         i = i+1
       elsif opts[i].eql?("-n")
         @raxml_options["-n"] = opts[i+1]
         i = i+1  
       elsif opts[i].eql?("-H")
-        a = opts[i+1].split("_")
-        @raxml_options["-H"] = a.join(" ")
+        @raxml_options["-H"] = opts[i+1]
         i = i+1  
       elsif opts[i].eql?("-G")
-        a = opts[i+1].split("_")
-        @raxml_options["-G"] = a.join(" ")
+        @raxml_options["-G"] = opts[i+1]
         i = i+1      
       elsif opts[i].eql?("-t")
         @raxml_options["-t"] = opts[i+1]
@@ -52,7 +48,10 @@ class RaxmlAndSendEmail
         i = i+1 
       elsif opts[i].eql?("-link")
         @link = opts[i+1]
-        i = i+1   
+        i = i+1
+      elsif opts[i].eql?("-id")
+        @id = opts[i+1]
+        i = i+1
       else
         raise "ERROR in options_parser!, unknown option #{opts[i]}!"
       end
@@ -61,8 +60,11 @@ class RaxmlAndSendEmail
   end
 
   def run_raxml
-    command ="#{RAILS_ROOT}/bioprogs/dummy/dummy.rb "
+    command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC "
     @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
+    puts "********************************************************"
+    puts command
+    puts "********************************************************"
     system command 
   end
 

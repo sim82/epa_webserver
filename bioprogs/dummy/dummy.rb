@@ -5,7 +5,7 @@ class Dummy
   def initialize(opts)
     @alifile = ""
     @outfile = ""
-    @time = 0
+    @time = 20
     @speed =""
     @model =""
 
@@ -50,8 +50,13 @@ class Dummy
           puts "ERROR: unknown option for -f"
         end
       elsif opts[i].eql?("-m")
-        @model = opts[i+1]
-        i = i+1
+        if opts[i+1] =~ /^PROT/
+          @model = "#{opts[i+1]} #{opts[i+2]}"
+          i = i+2
+        else
+          @model = opts[i+1]
+          i = i+1
+        end
       elsif opts[i].eql?("-t")
         @treefile = opts[i+1]
         i = i+1

@@ -11,10 +11,10 @@ class RaxmlController < ApplicationController
     matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG", "GTR"]
     matrices.each {|m| @aa_matrices= @aa_matrices+"<option>#{m}</option>"}
     @heuristics =""
-    heuristics = ["none","MP","MC"]
+    heuristics = ["none","MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
     @heuristics_values =""
-    heuristics_values = ["0.5","0.333","0.25","0.2","0.167","0.142","0.125","0.111","0.1"]
+    heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
     heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
     @raxml = Raxml.new
   end
@@ -34,7 +34,7 @@ class RaxmlController < ApplicationController
     heuristics = ["none","MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
     @heuristics_values =""
-    heuristics_values = ["0.5","0.333","0.25","0.2","0.167","0.142","0.125","0.111","0.1"]
+    heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
     heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
     
     @direcrory = nil
@@ -50,37 +50,36 @@ class RaxmlController < ApplicationController
       @substmodel = params[:aa_substmodel]
       @matrix = params[:matrix]
       @sm_float = params[:sm_float]
-      @substmodel = "#{@substmodel}_#{@matrix}_#{@sm_float}"
+      @substmodel = "#{@substmodel}_#{@matrix}#{@sm_float}"
     end
     
     @heuristic = params[:heuristic]
     @heu_float = "" 
     if !@heuristic.eql?("none")
-      @heu_float = params[:heu_float]
-      @heuristic = @heuristic+"_"+@heu_float
+      @h_value = params[:heu_float]
     end
 #    @heuristic = @heuristic+"_"+@heu_float
 
-    @wait = params[:wait]
     @email = params[:rax_email]
     @outfile = ""
     @alifile = ""
     @pid = 0
 
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :pid => @pid, :wait => @wait})
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :pid => @pid, :h_value => @h_value})
     
     
     if @raxml.save
       buildJobDir(@raxml)
       @alifile = saveInfile(@raxml.alifile, "alignment_file")
       @raxml.update_attribute(:alifile,@alifile)
-      @raxml.update_attribute(:outfile,@directory+"results.txt")
+      @raxml.update_attribute(:outfile,"#{@raxml.id}")
+#      @raxml.update_attribute(:outfile,@directory+"results.txt")
 
       @treefile = saveInfile(@raxml.treefile, "tree_file")
       @raxml.update_attribute(:treefile,@treefile)
       
       link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.id
-      @raxml.execude(link)
+      @raxml.execude(link,@raxml.id.to_s)
       sleep 2
       redirect_to :action => 'wait', :id => @raxml.id 
     else
@@ -122,7 +121,13 @@ class RaxmlController < ApplicationController
 
   def results
     rax = Raxml.find_by_id(params[:id])    
-    @results =  RaxmlResultsParser.new(rax.outfile).data
+    res  =  RaxmlResultsParser.new(rax.outfile)
+    @files = res.files
+    @names = res.names
   end
 
+  def download 
+    file = params[:file]
+    send_file file
+  end
 end

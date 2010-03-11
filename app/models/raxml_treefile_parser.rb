@@ -13,7 +13,6 @@ attr_reader :format, :valid_format, :error ,:data
     @valid_format = false
     @error = ""
     @message = "Invalid Treefile format!\n ParserError :: #{@filename}"
-    puts @message
     check_format   
   end
 

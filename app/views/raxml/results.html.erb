@@ -1,3 +1,6 @@
 <h1>Results</h1>
 <%= link_to "Submit new Job" , :controller => 'raxml', :action => 'index' %><br><br>
-<pre><%=@results %></pre>
+<h2>Downloads</h2>
+<% i = 0; while i<@names.size %>
+<%= link_to "#{@names[i]}", :action => 'download' , :file => "#{@files[i]}"%><br>
+<% i = i+1; end %>
