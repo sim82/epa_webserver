@@ -2,8 +2,7 @@ class CreateRaxmls < ActiveRecord::Migration
   def self.up
     create_table :raxmls do |t|
 
-      t.string :query, :alifile, :treefile, :outfile, :substmodel, :speed, :heuristic, :h_value, :email 
-      t.integer :pid
+      t.string :query, :alifile, :treefile, :outfile, :substmodel, :speed, :heuristic, :h_value, :email ,:errorfile
             
       t.timestamps
     end

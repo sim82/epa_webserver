@@ -63,9 +63,8 @@ class RaxmlController < ApplicationController
     @email = params[:rax_email]
     @outfile = ""
     @alifile = ""
-    @pid = 0
 
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :pid => @pid, :h_value => @h_value})
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => ""})
     
     
     if @raxml.save
@@ -105,7 +104,8 @@ class RaxmlController < ApplicationController
    
   def wait
     rax = Raxml.find_by_id(params[:id])
-    if pidAlive?(rax.pid)
+   # if pidAlive?(rax.pid)
+    if !(jobIsFinished?(params[:id]))
       render :action => "wait"
     else
       redirect_to :action => "results" , :id => rax.id
@@ -119,11 +119,31 @@ class RaxmlController < ApplicationController
     return false
   end
 
+  def jobIsFinished?(id)
+    path = "#{RAILS_ROOT}/public/jobs/#{id}/"
+    finished = false
+    Dir.glob(path+"submit.sh.*"){|file|
+      f = File.open(file,'r')
+      if f.readlines.size > 1
+        if file =~ /submit\.sh\.e/
+          @raxml.update_attribute(:errorfile,file)
+        end
+        finished = true
+      end
+      f.close
+    }
+    return finished       
+  end
+
   def results
     rax = Raxml.find_by_id(params[:id])    
     res  =  RaxmlResultsParser.new(rax.outfile)
     @files = res.files
     @names = res.names
+    if !(rax.errorfile.eql?(""))
+      @files << rax.errorfile
+      @names << "error_log"
+    end
   end
 
   def download 

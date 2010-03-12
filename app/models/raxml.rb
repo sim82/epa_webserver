@@ -46,13 +46,16 @@ class Raxml < ActiveRecord::Base
         opts["-G"] = (($1.to_f)/($2.to_f)).to_s
       end
     end
-    
+    path = "#{RAILS_ROOT}/public/jobs/#{id}"
+    shell_file = "#{RAILS_ROOT}/public/jobs/#{id}/submit.sh"
     command = "#{RAILS_ROOT}/bioprogs/ruby/raxml_and_send_email.rb"
     opts.each_key {|k| command  = command+" "+k+" "+opts[k]+" "}
     puts command
-    process = fork {system command}
-    pid = process+1
-    self.update_attribute(:pid,pid)
+    File.open(shell_file,'wb'){|file| file.write(command)}
+    system "qsub -o #{path} -e #{path} #{shell_file}"
+#    process = fork {system command}
+#    pid = process+1
+#    self.update_attribute(:pid,pid)
   end
 
   def emailValid?

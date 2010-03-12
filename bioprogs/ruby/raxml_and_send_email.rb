@@ -15,7 +15,7 @@ class RaxmlAndSendEmail
     if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
       send_email
     end
-
+    puts "done!"
   end
 
   def options_parser!(opts)
@@ -62,9 +62,9 @@ class RaxmlAndSendEmail
   def run_raxml
     command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC "
     @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
-    puts "********************************************************"
-    puts command
-    puts "********************************************************"
+#    puts "********************************************************"
+ #   puts command
+ #   puts "********************************************************"
     system command 
   end
 
