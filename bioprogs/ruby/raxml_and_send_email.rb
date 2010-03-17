@@ -43,6 +43,12 @@ class RaxmlAndSendEmail
         a = opts[i+1].split("_")
         @raxml_options["-m"] = a.join(" ")
         i = i+1  
+      elsif opts[i].eql?("-x")
+        @raxml_options["-x"] = opts[i+1]
+        i = i+1
+      elsif opts[i].eql?("-N")
+        @raxml_options["-N"] = opts[i+1]
+        i = i+1
       elsif opts[i].eql?("-email")
         @email_address = opts[i+1]
         i = i+1 

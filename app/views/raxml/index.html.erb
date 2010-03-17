@@ -35,13 +35,30 @@
   <p><label for = "aa_substmodel">Models </label> : 
     <%= select_tag "aa_substmodel", "#{@aa_model_options}" %>
     <%= select_tag "matrix", "#{@aa_matrices}" %>
-    <br> use empirical base frequencies <%= check_box_tag "sm_float", "[F]"%>
+    <br> Use empirical base frequencies <%= check_box_tag "sm_float", "[F]"%>
   </p>
 </div>
 
-<input type="button" name="optBut" value="show more options" onclick="optionalButton('optional','optBut')">
-<!-- Optional parameters for RAxML -->  
+<!-- <input type="button" name="optBut" value="show more options" onclick="optionalButton('optional','optBut')">
+<!-- Optional parameters for RAxML  
 <div id="optional" style="visibility:hidden">
+  <p><label for = "heuristic">Heuristic </label> : 
+    <%= select_tag "heuristic", "#{@heuristics}" %>
+    <%= select_tag "heu_float","#{@heuristics_values}"%>
+  </p>
+</div> -->
+Use Bootstrapping <input id="chBoot" name="chBoot" type="checkbox" value="T" onclick="optionalCheckboxElements('bootstrap','chBoot','heuristic','chHeu')"/>
+<div id="bootstrap" style="visibility:hidden" >
+  <p><label for = "bootstrap">Random seed</label> : 
+    <%= text_field_tag "random_seed",1234,  :size =>4 %></p> 
+  <p><label for = "bootstrap">Number of runs</label> :
+    <%= text_field_tag "runs",100,  :size =>4 %>
+  </p>
+</div>
+
+
+Use Heuristics <input id="chHeu" name="chHeu" type="checkbox" value="T" onclick="optionalCheckboxElements('heuristic','chHeu','bootstrap','chBoot')" />
+<div id="heuristic" style="visibility:hidden">
   <p><label for = "heuristic">Heuristic </label> : 
     <%= select_tag "heuristic", "#{@heuristics}" %>
     <%= select_tag "heu_float","#{@heuristics_values}"%>

@@ -13,7 +13,7 @@ class RaxmlResultsParser
   def getFiles
     Dir.glob("#{RAILS_ROOT}/public/jobs/#{@job_id}/RAxML_*"){|file| 
       @files << file
-      if file =~ /.+\/(RAxML_.+)\.#{@job_id}$/
+      if file =~ /.+\/(RAxML_.+\.#{@job_id}\.*\d*)$/
         @names << $1
       end
     }

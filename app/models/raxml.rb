@@ -5,7 +5,7 @@ class Raxml < ActiveRecord::Base
 
   validates_presence_of :alifile, :treefile
   validates_format_of :email, :with => /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i , :on => :save, :message => "Invalid address", :allow_blank => true
-
+  validates_numericality_of :b_random_seed, :b_runs, :only_integer => true, :greater_than => 0 , :message => "Input must be an integer and greater than 0"
  # validates_each :heuristic  do |record, attr, value|
  #   if (value =~ /^\w+\_([\d+])$/ || value =~ /^\w+\_([\d+]\.{0,1}\d+)$/ )
  #     record.errors.add attr, 'value has to be between 0 and 1' if ($1.to_f > 1.0 || $1.to_f < 0.0)
@@ -37,19 +37,26 @@ class Raxml < ActiveRecord::Base
     if !(self.treefile.nil?)
       opts["-t"] = self.treefile
     end
-    if self.heuristic.eql?("MP")
-      if self.h_value =~ /(1)\/(\d+)/
-        opts["-H"] = (($1.to_f)/($2.to_f)).to_s
+    if self.use_heuristic.eql?("T")
+      if self.heuristic.eql?("MP")
+        if self.h_value =~ /(1)\/(\d+)/
+          opts["-H"] = (($1.to_f)/($2.to_f)).to_s
+        end
+      elsif self.heuristic.eql?("ML")
+        if self.h_value =~ /(1)\/(\d+)/
+          opts["-G"] = (($1.to_f)/($2.to_f)).to_s
+        end
       end
-    elsif self.heuristic.eql?("ML")
-      if self.h_value =~ /(1)\/(\d+)/
-        opts["-G"] = (($1.to_f)/($2.to_f)).to_s
-      end
+    elsif self.use_bootstrap.eql?("T")
+      opts["-x"] = self.b_random_seed
+      opts["-N"] = self.b_runs
     end
+
+
     path = "#{RAILS_ROOT}/public/jobs/#{id}"
     shell_file = "#{RAILS_ROOT}/public/jobs/#{id}/submit.sh"
     command = "#{RAILS_ROOT}/bioprogs/ruby/raxml_and_send_email.rb"
-    opts.each_key {|k| command  = command+" "+k+" "+opts[k]+" "}
+    opts.each_key {|k| command  = command+" "+k+" #{opts[k]} "}
     puts command
     File.open(shell_file,'wb'){|file| file.write(command)}
     system "qsub -o #{path} -e #{path} #{shell_file}"

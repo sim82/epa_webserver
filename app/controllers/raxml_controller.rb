@@ -11,7 +11,7 @@ class RaxmlController < ApplicationController
     matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG", "GTR"]
     matrices.each {|m| @aa_matrices= @aa_matrices+"<option>#{m}</option>"}
     @heuristics =""
-    heuristics = ["none","MP","ML"]
+    heuristics = ["MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
     @heuristics_values =""
     heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
@@ -31,7 +31,7 @@ class RaxmlController < ApplicationController
     matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG", "GTR"]
     matrices.each {|m| @aa_matrices= @aa_matrices+"<option>#{m}</option>"}
     @heuristics =""
-    heuristics = ["none","MP","ML"]
+    heuristics = ["MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
     @heuristics_values =""
     heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
@@ -53,18 +53,30 @@ class RaxmlController < ApplicationController
       @substmodel = "#{@substmodel}_#{@matrix}#{@sm_float}"
     end
     
-    @heuristic = params[:heuristic]
-    @heu_float = "" 
-    if !@heuristic.eql?("none")
+    @use_heuristic = params[:chHeu]
+    @heuristic = ""
+    @h_value =""
+    if  @use_heuristic.eql?("T")
+      @heuristic = params[:heuristic]
       @h_value = params[:heu_float]
+    else
+      @use_heuristic = "F"
     end
-#    @heuristic = @heuristic+"_"+@heu_float
-
+    @b_random_seed = 1234
+    @b_runs = 100
+    @use_bootstrap = params[:chBoot]
+    if @use_bootstrap.eql?("T")
+      @b_random_seed = params[:random_seed]
+      @b_runs = params[:runs]
+    else
+      @use_bootstrap = "F"
+    end
+      
     @email = params[:rax_email]
     @outfile = ""
     @alifile = ""
 
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => ""})
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs })
     
     
     if @raxml.save

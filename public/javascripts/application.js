@@ -14,3 +14,18 @@ function optionalButton(id,name){
                   
 }
 
+function optionalCheckboxElements(id1,name1,id2,name2){
+    var vis = document.getElementById(name1);
+    if (vis.checked){
+        document.getElementById(id1).style.visibility = 'visible';
+        document.getElementById(id2).style.visibility = 'hidden';
+        document.getElementById(name2).checked = false;
+    }
+    else{
+        document.getElementById(id1).style.visibility = 'hidden';
+    }
+}
+        
+    
+        
+
