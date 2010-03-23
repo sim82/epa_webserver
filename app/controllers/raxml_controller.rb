@@ -2,14 +2,17 @@ class RaxmlController < ApplicationController
   
   def index
     @dna_model_options = ""
-    models = ["GTRGAMMA","GTRCAT","GTRCAT_FLOAT", "GTRCATI", "GTRGAMMA_FLOAT","GTRGAMMAI"]
+    models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
     models.each {|m| @dna_model_options= @dna_model_options+"<option>#{m}</option>"}
     @aa_model_options = ""
     models = ["PROTGAMMA","PROTGAMMAI","PROTCAT","PROTCATI"]
     models.each {|m| @aa_model_options= @aa_model_options+"<option>#{m}</option>"}
     @aa_matrices = ""
-    matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG", "GTR"]
+    matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG"]
     matrices.each {|m| @aa_matrices= @aa_matrices+"<option>#{m}</option>"}
+    @par_model_options  =""
+    models = ["GAMMA", "GAMMAI", "CAT", "CATI"]
+    models.each {|m| @par_model_options= @par_model_options+"<option>#{m}</option>"}
     @heuristics =""
     heuristics = ["MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
@@ -22,14 +25,17 @@ class RaxmlController < ApplicationController
   def submitJob
     
     @dna_model_options = ""
-    models = ["GTRGAMMA","GTRCAT","GTRCAT_FLOAT", "GTRCATI", "GTRGAMMA_FLOAT","GTRGAMMAI"]
+    models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
     models.each {|m| @dna_model_options= @dna_model_options+"<option>#{m}</option>"}
     @aa_model_options = ""
     models = ["PROTGAMMA","PROTGAMMAI","PROTCAT","PROTCATI"]
     models.each {|m| @aa_model_options= @aa_model_options+"<option>#{m}</option>"}
     @aa_matrices = ""
-    matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG", "GTR"]
+    matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG"]
     matrices.each {|m| @aa_matrices= @aa_matrices+"<option>#{m}</option>"}
+    @par_model_options  =""
+    models = ["GAMMA", "GAMMAI", "CAT", "CATI"]
+    models.each {|m| @par_model_options= @par_model_options+"<option>#{m}</option>"}
     @heuristics =""
     heuristics = ["MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
@@ -44,13 +50,17 @@ class RaxmlController < ApplicationController
     @substmodel = ""
     @matrix = nil
     @sm_float = nil
+    @parfile = ""
     if @query.eql?("DNA")
       @substmodel = "#{params[:dna_substmodel]}"
-    else
+    elsif @query.eql?("AA")
       @substmodel = params[:aa_substmodel]
       @matrix = params[:matrix]
       @sm_float = params[:sm_float]
       @substmodel = "#{@substmodel}_#{@matrix}#{@sm_float}"
+    elsif @query.eql?("PAR")
+      @substmodel = "GTR#{params[:par_substmodel]}"
+      @parfile = params[:raxml][:parfile]
     end
     
     @use_heuristic = params[:chHeu]
@@ -75,8 +85,15 @@ class RaxmlController < ApplicationController
     @email = params[:rax_email]
     @outfile = ""
     @alifile = ""
+    @queryfile = ""
+    @use_queryfile = params[:qfile]
+    if @use_queryfile.eql?("T")
+      @queryfile = params[:raxml][:queryfile]
+    else
+      @use_queryfile = "F"
+    end
 
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs })
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile})
     
     
     if @raxml.save
@@ -84,11 +101,19 @@ class RaxmlController < ApplicationController
       @alifile = saveInfile(@raxml.alifile, "alignment_file")
       @raxml.update_attribute(:alifile,@alifile)
       @raxml.update_attribute(:outfile,"#{@raxml.id}")
-#      @raxml.update_attribute(:outfile,@directory+"results.txt")
 
       @treefile = saveInfile(@raxml.treefile, "tree_file")
       @raxml.update_attribute(:treefile,@treefile)
       
+      if @query.eql?("PAR")
+        @parfile = saveInfile(@raxml.parfile, "partition_file")
+        @raxml.update_attribute(:parfile,@parfile)
+      end
+
+      if @use_queryfile.eql?("T")
+        @queryfile = saveInfile(@raxml.queryfile, "query_file")
+        @raxml.update_attribute(:queryfile,@queryfile)
+      end
       link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.id
       @raxml.execude(link,@raxml.id.to_s)
       sleep 2
@@ -115,12 +140,12 @@ class RaxmlController < ApplicationController
   end
    
   def wait
-    rax = Raxml.find_by_id(params[:id])
+    @raxml = Raxml.find_by_id(params[:id])
    # if pidAlive?(rax.pid)
     if !(jobIsFinished?(params[:id]))
       render :action => "wait"
     else
-      redirect_to :action => "results" , :id => rax.id
+      redirect_to :action => "results" , :id => @raxml.id
     end
   end
 
@@ -136,11 +161,22 @@ class RaxmlController < ApplicationController
     finished = false
     Dir.glob(path+"submit.sh.*"){|file|
       f = File.open(file,'r')
-      if f.readlines.size > 1
+      fi = f.readlines
+      if fi.size > 0
         if file =~ /submit\.sh\.e/
           @raxml.update_attribute(:errorfile,file)
+          f.close
+          return true
+        else
+          fi.each do |line|
+            if line =~ /\s+ERROR[\s:]\s*/i
+              @raxml.update_attribute(:errorfile,file)
+              return true
+            elsif line =~ /^done!\s*$/
+              return true
+            end
+          end
         end
-        finished = true
       end
       f.close
     }
@@ -154,7 +190,7 @@ class RaxmlController < ApplicationController
     @names = res.names
     if !(rax.errorfile.eql?(""))
       @files << rax.errorfile
-      @names << "error_log"
+      @names << "logfile"
     end
   end
 

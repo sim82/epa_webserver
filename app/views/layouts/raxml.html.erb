@@ -1,19 +1,27 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
 <html>
+
   <title><%= @title || "RAxML" %></title>
   <%= javascript_include_tag "application" %>
   <%= stylesheet_link_tag 'raxml' %>
   <style type="text/css"></style>
   <body>
-    <table width="100%">
-      <tr height="100">
-        <td width="100"></td><td></td>
-      </tr>
-      <tr>
-        <td></td><td><%=yield %></td>
-      </tr>
-      <tr>
-        <td></td><td></td>
-      </tr>
-    </table>
+
+    <div class="header">
+      
+    </div>
+
+    <div class="sidebar">
+    </div>
+
+    <div class="mainsection">
+      <%=yield %>
+    </div>
+
+    <div class="footer">
+    </div>
+    
   </body>
 </html>

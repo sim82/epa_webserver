@@ -4,7 +4,7 @@ require 'fasta_to_phylip'
 
 class RaxmlAlignmentfileParser
   
-attr_reader :format, :valid_format, :error ,:data
+attr_reader :format, :valid_format, :error ,:data , :ali_length
   def initialize(stream)
     @filename = stream.original_filename
     @data = stream.readlines 
@@ -13,6 +13,14 @@ attr_reader :format, :valid_format, :error ,:data
     @error = ""
     @message = "Invalid alignmentfile format!(Only Fasta and Phylip alignment formats are allowed)\n ParserError :: #{@filename}"
     check_format   
+    @ali_length = 0
+    if @valid_format
+      @data.each do |line|
+        if line=~ /\d+\s+(\d+)/
+          @ali_length = $1.to_i
+        end
+      end
+    end
   end
 
   private

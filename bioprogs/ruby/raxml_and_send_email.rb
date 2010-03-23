@@ -2,15 +2,21 @@
 
 RAILS_ROOT = File.expand_path(File.join(File.dirname(__FILE__), '../..'))
 require 'net/smtp'
+require "#{RAILS_ROOT}/bioprogs/ruby/reformat.rb"
 
 class RaxmlAndSendEmail 
 
   def initialize(opts)
     @raxml_options = Hash.new
     @email_address = ""
+    @queryfile = ""
+    @use_queryfile = false
     @link = ""
     @id = ""
     options_parser!(opts)
+    if @use_queryfile
+      buildAlignmentWithHMMER
+    end
     run_raxml
     if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
       send_email
@@ -49,6 +55,9 @@ class RaxmlAndSendEmail
       elsif opts[i].eql?("-N")
         @raxml_options["-N"] = opts[i+1]
         i = i+1
+      elsif opts[i].eql?("-q")
+        @raxml_options["-q"] = opts[i+1]
+        i = i+1
       elsif opts[i].eql?("-email")
         @email_address = opts[i+1]
         i = i+1 
@@ -58,6 +67,10 @@ class RaxmlAndSendEmail
       elsif opts[i].eql?("-id")
         @id = opts[i+1]
         i = i+1
+      elsif opts[i].eql?("-useQ")
+        @use_queryfile = true
+        @queryfile = opts[i+1]
+        i = i+1
       else
         raise "ERROR in options_parser!, unknown option #{opts[i]}!"
       end
@@ -65,12 +78,25 @@ class RaxmlAndSendEmail
     end
   end
 
+  def buildAlignmentWithHMMER
+    jobpath = "#{RAILS_ROOT}/public/jobs/#{@id}/"
+    ref = Reformat.new(@raxml_options["-s"])
+    ref.reformatToStockholm
+    ref.writeToFile(jobpath+"alignment_file.sto")
+    command = "hmmbuild   #{jobpath}alignment_file.hmm #{jobpath}alignment_file.sto"
+    system command
+    puts command
+    command = "hmmalign -o #{jobpath}alignment_file2.sto --mapali #{jobpath}alignment_file.sto  #{jobpath}alignment_file.hmm #{@queryfile}  "
+    system command
+    puts command
+    ref = Reformat.new("#{jobpath}alignment_file2.sto")
+    ref.reformatToPhylip
+    ref.writeToFile(@raxml_options["-s"])
+  end
+
   def run_raxml
     command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC "
     @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
-#    puts "********************************************************"
- #   puts command
- #   puts "********************************************************"
     system command 
   end
 

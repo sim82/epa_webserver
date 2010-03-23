@@ -25,6 +25,16 @@ function optionalCheckboxElements(id1,name1,id2,name2){
         document.getElementById(id1).style.visibility = 'hidden';
     }
 }
+
+function showHideCheckboxElements(checkboxID, elementsID){
+    var vis = document.getElementById(checkboxID);
+    if (vis.checked){
+        document.getElementById(elementsID).style.visibility = 'visible';
+    }
+    else {
+        document.getElementById(elementsID).style.visibility = 'hidden';
+    }
+}
         
     
         
