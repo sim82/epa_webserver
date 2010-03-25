@@ -5,16 +5,17 @@
 
 <% form_tag ({:action => 'submitJob'},:multipart => true) do %>
 
-<p><label for="raxml_alifile">Select Alignment File</label> : 
+<p><label for="raxml_alifile">Select alignment file</label> : 
   <%= file_field 'raxml', 'alifile' %>
 </p>
 Upload unaligned query reads  <input id="qfile" name="qfile" type="checkbox" value="T" onclick="showHideCheckboxElements('qfile','queryfile')"/>
-<div id="queryfile" style="visibility:hidden">
-  <p><label for="raxml_readfile">Select Query File</label> : 
+<div class="optionLevel1"  id="queryfile" style="visibility:hidden">
+  <p><label for="raxml_readfile">Select query file</label> : 
     <%= file_field 'raxml', 'queryfile' %>
   </p>
+  <p>Cluster query reads <%= check_box_tag "cluster", "T"%> </p>
 </div>
-<p><label for="tree_file">Select Tree File</label> : 
+<p><label for="tree_file">Select tree file</label> : 
   <%= file_field 'treefile', 'file' %>
 </p>
 

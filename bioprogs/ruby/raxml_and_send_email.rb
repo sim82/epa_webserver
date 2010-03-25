@@ -11,9 +11,14 @@ class RaxmlAndSendEmail
     @email_address = ""
     @queryfile = ""
     @use_queryfile = false
+    @use_clustering = true
     @link = ""
     @id = ""
     options_parser!(opts)
+    @jobpath = "#{RAILS_ROOT}/public/jobs/#{@id}/"
+    if @use_clustering
+      useUClust
+    end
     if @use_queryfile
       buildAlignmentWithHMMER
     end
@@ -71,6 +76,9 @@ class RaxmlAndSendEmail
         @use_queryfile = true
         @queryfile = opts[i+1]
         i = i+1
+      elsif opts[i].eql?("-useCl")
+        @use_clustering = true
+        i = i+1
       else
         raise "ERROR in options_parser!, unknown option #{opts[i]}!"
       end
@@ -78,18 +86,30 @@ class RaxmlAndSendEmail
     end
   end
 
+  def useUClust
+    outfile = @jobpath+"cluster"
+    command = "#{RAILS_ROOT}/bioprogs/uclust/uclust32 --input #{@queryfile}  --uc #{outfile}.uc --id 0.90 --usersort 2>&1"
+    puts command
+    system command
+    command = "#{RAILS_ROOT}/bioprogs/uclust/uclust32 --uc2fasta #{outfile}.uc --input #{@queryfile} --output #{outfile}.fas  2>&1"
+    puts command
+    system command
+    ref = Reformat.new(outfile+".fas")
+    ref.exportClusterRepresentatives!
+    ref.writeToFile(@queryfile)
+  end
+
   def buildAlignmentWithHMMER
-    jobpath = "#{RAILS_ROOT}/public/jobs/#{@id}/"
     ref = Reformat.new(@raxml_options["-s"])
     ref.reformatToStockholm
-    ref.writeToFile(jobpath+"alignment_file.sto")
-    command = "hmmbuild   #{jobpath}alignment_file.hmm #{jobpath}alignment_file.sto"
+    ref.writeToFile(@jobpath+"alignment_file.sto")
+    command = "hmmbuild   #{@jobpath}alignment_file.hmm #{@jobpath}alignment_file.sto"
     system command
     puts command
-    command = "hmmalign -o #{jobpath}alignment_file2.sto --mapali #{jobpath}alignment_file.sto  #{jobpath}alignment_file.hmm #{@queryfile}  "
+    command = "hmmalign -o #{@jobpath}alignment_file2.sto --mapali #{@jobpath}alignment_file.sto  #{@jobpath}alignment_file.hmm #{@queryfile}  "
     system command
     puts command
-    ref = Reformat.new("#{jobpath}alignment_file2.sto")
+    ref = Reformat.new("#{@jobpath}alignment_file2.sto")
     ref.reformatToPhylip
     ref.writeToFile(@raxml_options["-s"])
   end

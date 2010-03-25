@@ -18,7 +18,7 @@ attr_accessor :format
         while  i < @data.size
           if @data[i] =~ /^>/
             i = i+1
-            while @data[i]=~/^[A-Za-z]+$/
+            while @data[i]=~/^[A-Za-z\-]+$/
               i = i+1
             end
           else
@@ -151,6 +151,27 @@ attr_accessor :format
     f.close
   end
 
+  def exportClusterRepresentatives!
+    reps = []
+    if @format.eql?("fas")
+      i = 0
+      while  i < @data.size
+        if @data[i] =~ /^(>\d+\|\*\|.*)\s{0,1}/  #reps are marked by |*|
+          reps << $1
+          i = i+1
+          while @data[i]=~/^([A-Za-z\-]+)\s*$/
+            reps << $1
+            i = i+1
+          end
+          next
+        end
+        i = i+1
+      end
+      @data =  reps
+    else
+      raise "Data has wrong format for this function!"
+    end
+  end
 
 ######################
 ### Helper Methods ###

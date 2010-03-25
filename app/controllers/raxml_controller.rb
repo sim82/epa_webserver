@@ -62,7 +62,10 @@ class RaxmlController < ApplicationController
       @substmodel = "GTR#{params[:par_substmodel]}"
       @parfile = params[:raxml][:parfile]
     end
-    
+    @use_clustering = params[:cluster]
+    if !(@use_clustering.eql?("T"))
+      @use_clustering ="F"
+    end
     @use_heuristic = params[:chHeu]
     @heuristic = ""
     @h_value =""
@@ -93,7 +96,7 @@ class RaxmlController < ApplicationController
       @use_queryfile = "F"
     end
 
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile})
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering})
     
     
     if @raxml.save
@@ -164,6 +167,7 @@ class RaxmlController < ApplicationController
       fi = f.readlines
       if fi.size > 0
         if file =~ /submit\.sh\.e/
+          
           @raxml.update_attribute(:errorfile,file)
           f.close
           return true

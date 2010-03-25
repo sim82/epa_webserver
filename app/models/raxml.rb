@@ -89,6 +89,9 @@ class Raxml < ActiveRecord::Base
     if self.use_queryfile.eql?("T")
       opts["-useQ"] = self.queryfile
     end
+    if self.use_clustering.eql?("T")
+      opts["-useCl"] = self.use_clustering
+    end
 
 
     path = "#{RAILS_ROOT}/public/jobs/#{id}"
