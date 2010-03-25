@@ -39,25 +39,48 @@ class Raxml < ActiveRecord::Base
   end
 
   def validate
+    jobdir = "#{RAILS_ROOT}/public/jobs/#{self.jobid}/"
     if !(self.alifile.eql?("")) && !(self.treefile.eql?(""))
-      f = RaxmlAlignmentfileParser.new(self.alifile)
-      self.alifile = f.data
-      errors.add(:alifile, f.error) if !(f.valid_format)
+      a = RaxmlAlignmentfileParser.new(self.alifile)
+      errors.add(:alifile, a.error) if !(a.valid_format)
+      if a.valid_format
+          alifile_path =  jobdir+"alignment_file"
+          saveOnDisk(a.data,alifile_path)
+          self.alifile = alifile_path
+      end
+      
       t = RaxmlTreefileParser.new(self.treefile)
-      self.treefile = t.data
       errors.add(:treefile, t.error) if !(t.valid_format)
+      if t.valid_format
+          treefile_path =  jobdir+"tree_file"
+          saveOnDisk(t.data,treefile_path)
+          self.treefile = treefile_path
+      end
+
       if self.query.eql?("PAR") && !(self.parfile.eql?("") )
         p = RaxmlPartitionfileParser.new(self.parfile,f.ali_length)
-        self.parfile = p.data
         errors.add(:parfile, p.error) if !(p.valid_format)
+        if p.valid_format
+          parfile_path =  jobdir+"partition_file"
+          saveOnDisk(p.data,parfile_path)
+          self.parfile = parfile_path
+        end
       end
       if self.use_queryfile.eql?("T") && !(self.queryfile.eql?(""))
         q = RaxmlQueryfileParser.new(self.queryfile)
-        self.queryfile = q.data
-        errors.add(:queryfile, q.error) if !(q.valid_format)
+        errors.add(:queryfile, q.error) if !(q.valid_format) 
+        if q.valid_format
+          queryfile_path =  jobdir+"queryfile"
+          saveOnDisk(q.data,queryfile_path)
+          self.queryfile = queryfile_path
+        end
       end
     end
   end
+
+    def saveOnDisk(data,path)
+      File.open(path,'wb'){|f| f.write(data.join)}
+    end
 
   def execude(link,id)
     #RAxML command with parameters

@@ -11,7 +11,7 @@ class RaxmlAndSendEmail
     @email_address = ""
     @queryfile = ""
     @use_queryfile = false
-    @use_clustering = true
+    @use_clustering = false
     @link = ""
     @id = ""
     options_parser!(opts)
@@ -104,11 +104,11 @@ class RaxmlAndSendEmail
     ref.reformatToStockholm
     ref.writeToFile(@jobpath+"alignment_file.sto")
     command = "hmmbuild   #{@jobpath}alignment_file.hmm #{@jobpath}alignment_file.sto"
-    system command
     puts command
+    system command
     command = "hmmalign -o #{@jobpath}alignment_file2.sto --mapali #{@jobpath}alignment_file.sto  #{@jobpath}alignment_file.hmm #{@queryfile}  "
-    system command
     puts command
+    system command
     ref = Reformat.new("#{@jobpath}alignment_file2.sto")
     ref.reformatToPhylip
     ref.writeToFile(@raxml_options["-s"])

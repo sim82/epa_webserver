@@ -1,5 +1,4 @@
 class RaxmlController < ApplicationController
-  
   def index
     @dna_model_options = ""
     models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
@@ -23,7 +22,8 @@ class RaxmlController < ApplicationController
   end
 
   def submitJob
-    
+    @jobid = generateJobID
+
     @dna_model_options = ""
     models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
     models.each {|m| @dna_model_options= @dna_model_options+"<option>#{m}</option>"}
@@ -95,32 +95,31 @@ class RaxmlController < ApplicationController
     else
       @use_queryfile = "F"
     end
-
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering})
+    buildJobDir
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering, :jobid => @jobid})
     
     
     if @raxml.save
-      buildJobDir(@raxml)
-      @alifile = saveInfile(@raxml.alifile, "alignment_file")
-      @raxml.update_attribute(:alifile,@alifile)
-      @raxml.update_attribute(:outfile,"#{@raxml.id}")
+ #     @alifile = saveInfile(@raxml.alifile, "alignment_file")
+ #     @raxml.update_attribute(:alifile,@alifile)
+      @raxml.update_attribute(:outfile,"#{@raxml.jobid}")
 
-      @treefile = saveInfile(@raxml.treefile, "tree_file")
-      @raxml.update_attribute(:treefile,@treefile)
+#      @treefile = saveInfile(@raxml.treefile, "tree_file")
+#      @raxml.update_attribute(:treefile,@treefile)
       
-      if @query.eql?("PAR")
-        @parfile = saveInfile(@raxml.parfile, "partition_file")
-        @raxml.update_attribute(:parfile,@parfile)
-      end
+#      if @query.eql?("PAR")
+#        @parfile = saveInfile(@raxml.parfile, "partition_file")
+#        @raxml.update_attribute(:parfile,@parfile)
+#      end
 
-      if @use_queryfile.eql?("T")
-        @queryfile = saveInfile(@raxml.queryfile, "query_file")
-        @raxml.update_attribute(:queryfile,@queryfile)
-      end
-      link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.id
-      @raxml.execude(link,@raxml.id.to_s)
+#      if @use_queryfile.eql?("T")
+#        @queryfile = saveInfile(@raxml.queryfile, "query_file")
+#        @raxml.update_attribute(:queryfile,@queryfile)
+#      end
+      link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.jobid
+      @raxml.execude(link,@raxml.jobid.to_s)
       sleep 2
-      redirect_to :action => 'wait', :id => @raxml.id 
+      redirect_to :action => 'wait', :id => @raxml.jobid 
     else
       @raxml.errors.each do |field, error|
         puts field
@@ -130,25 +129,37 @@ class RaxmlController < ApplicationController
     end
   end
 
-  def buildJobDir(rax)
-    @directory = "#{RAILS_ROOT}/public/jobs/#{rax.id}/"
+  def buildJobDir
+    @directory = "#{RAILS_ROOT}/public/jobs/#{@jobid}/"
     Dir.mkdir(@directory) rescue system("rm -r #{@directory}; mkdir #{@directory}")
   end
 
-  def saveInfile(stream, file_name)
-    file_name = @directory+file_name
-    #file = @directory+stream.original_filename
-    File.open(file_name, "wb") { |f| f.write(stream) }
-    return file_name
+#  def saveInfile(stream, file_name)
+#    file_name = @directory+file_name
+#    #file = @directory+stream.original_filename
+#    File.open(file_name, "wb") { |f| f.write(stream) }
+#    return file_name
+#  end
+
+  def generateJobID
+    id = "#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}"	
+    searching_for_valid_id = true
+    while searching_for_valid_id
+      r = Raxml.find(:first, :conditions => ["jobid = #{id}"])
+      if r.nil?
+        return id
+      end
+      id  = "#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}"
+    end 
   end
    
   def wait
-    @raxml = Raxml.find_by_id(params[:id])
+    @raxml = Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
    # if pidAlive?(rax.pid)
-    if !(jobIsFinished?(params[:id]))
+    if !(jobIsFinished?(@raxml.jobid))
       render :action => "wait"
     else
-      redirect_to :action => "results" , :id => @raxml.id
+      redirect_to :action => "results" , :id => @raxml.jobid
     end
   end
 
@@ -188,7 +199,7 @@ class RaxmlController < ApplicationController
   end
 
   def results
-    rax = Raxml.find_by_id(params[:id])    
+    rax =  Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
     res  =  RaxmlResultsParser.new(rax.outfile)
     @files = res.files
     @names = res.names
