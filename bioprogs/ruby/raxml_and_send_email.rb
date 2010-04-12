@@ -23,6 +23,7 @@ class RaxmlAndSendEmail
       buildAlignmentWithHMMER
     end
     run_raxml
+    convertTreefileToPhyloXML
     if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
       send_email
     end
@@ -118,6 +119,24 @@ class RaxmlAndSendEmail
     command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC "
     @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
     system command 
+  end
+
+  def convertTreefileToPhyloXML
+    treefile = @raxml_options["-t"]
+    command = "cd #{RAILS_ROOT}/bioprogs/java; java -jar convertToPhyloXML.jar #{@jobpath}RAxML_originalLabelledTree.#{@id}"
+    if @raxml_options["-x"].nil? # bootstrapping activated?
+      file = @jobpath+"RAxML_classificationLikelihoodWeights."+@id
+      command = "#{command} #{file} #{@raxml_options["-N"]} > #{@jobpath}treefile.phyloxml"
+      puts command
+      system command
+      return
+    else
+      file  = @jobpath+"RAxML_classification."+@id
+      command = "#{command} #{file} > #{@jobpath}treefile.phyloxml"
+      puts command
+      system command
+      return
+    end
   end
 
   def send_email

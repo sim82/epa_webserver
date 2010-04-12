@@ -6,3 +6,12 @@
 <% i = i+1; end %>
 <br>
 <%= button_to "Submit new job" , :controller => 'raxml', :action => 'index' %><br>
+
+
+<APPLET codebase="/applets/archaeopteryx" archive="archaeopteryx_applets.jar" code="org.forester.archaeopteryx.ArchaeopteryxE" width="1000" height="700">
+<!--<APPLET  code="org.forester.archaeopteryx.ArchaeopteryxE" name="ArchaeopteryxE" archiv="archaeopteryx_applets.jar" width="1000" height="700">-->
+<param name="url_of_tree_to_load" value= '<%="#{@root}#{@path}treefile.phyloxml"%>' >
+<param name="config_file" value='<%="#{@root}/applets/archaeopteryx/_aptx_configuration_file"%>'>
+
+
+</APPLET>

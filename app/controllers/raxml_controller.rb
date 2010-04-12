@@ -203,6 +203,8 @@ class RaxmlController < ApplicationController
     res  =  RaxmlResultsParser.new(rax.outfile)
     @files = res.files
     @names = res.names
+    @root = "http://lxexelixis1.informatik.tu-muenchen.de:3000"
+    @path = "/jobs/#{rax.jobid}/"
     if !(rax.errorfile.eql?(""))
       @files << rax.errorfile
       @names << "logfile"
