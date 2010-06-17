@@ -141,9 +141,9 @@ class RaxmlAndSendEmail
 
   def send_email
     Net::SMTP.start('localhost', 25) do |smtp|
-      smtp.open_message_stream('raxml@lxexelixis1.informatik.tu-muenchen.de', @email_address) do |f|
+      smtp.open_message_stream('raxml@i12k-exelixis3.informatik.tu-muenchen.de', @email_address) do |f|
         
-        f.puts 'From: raxml@lxexelixis1.informatik.tu-muenchen.de'
+        f.puts 'From: raxml@i12k-exelixis3.informatik.tu-muenchen.de'
 
         f.puts "To: #{@email_address}"
 

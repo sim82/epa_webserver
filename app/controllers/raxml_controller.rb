@@ -23,7 +23,7 @@ class RaxmlController < ApplicationController
 
   def submitJob
     @jobid = generateJobID
-
+    puts "####{@jobid}"
     @dna_model_options = ""
     models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
     models.each {|m| @dna_model_options= @dna_model_options+"<option>#{m}</option>"}
@@ -151,6 +151,7 @@ class RaxmlController < ApplicationController
       end
       id  = "#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}"
     end 
+    return id
   end
    
   def wait
@@ -203,7 +204,9 @@ class RaxmlController < ApplicationController
     res  =  RaxmlResultsParser.new(rax.outfile)
     @files = res.files
     @names = res.names
-    @root = "http://lxexelixis1.informatik.tu-muenchen.de:3000"
+#    @root = "http://lxexelixis1:3000"
+    @root  = "http://i12k-exelixis3.informatik.tu-muenchen.de:3000"
+#    @root = "http://lxexelixis1.informatik.tu-muenchen.de:3000"
     @path = "/jobs/#{rax.jobid}/"
     if !(rax.errorfile.eql?(""))
       @files << rax.errorfile

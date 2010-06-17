@@ -20,6 +20,9 @@ test:
   timeout: 5000
 
 production:
-  adapter: sqlite3
-  database: db/production.sqlite3
+  adapter: mysql
+  database: RAxMLWS_production
+  username: denis
+  password: denis
+  host: localhost
   timeout: 5000
