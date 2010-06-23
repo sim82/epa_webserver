@@ -6,7 +6,9 @@
 
 # Specifies gem version of Rails to use when vendor/rails is not present
 RAILS_GEM_VERSION = '2.1.0' unless defined? RAILS_GEM_VERSION
-
+ENV['SERVER_IP'] = '131.159.28.95' unless defined? SERVER_IP 
+ENV['SERVER_ADDR'] = 'http://i12k-exelixis3.informatik.tu-muenchen.de' unless defined? SERVER_ADDR
+ENV['SERVER_NAME'] = 'i12k-exelixis3.informatik.tu-muenchen.de' unless defined? SERVER_NAME
 # Bootstrap the Rails environment, frameworks, and default configuration
 require File.join(File.dirname(__FILE__), 'boot')
 

@@ -205,7 +205,7 @@ class RaxmlController < ApplicationController
     @files = res.files
     @names = res.names
 #    @root = "http://lxexelixis1:3000"
-    @root  = "http://i12k-exelixis3.informatik.tu-muenchen.de:3000"
+    @root  = "#{ENV['SERVER_ADDR']}:3000"
 #    @root = "http://lxexelixis1.informatik.tu-muenchen.de:3000"
     @path = "/jobs/#{rax.jobid}/"
     if !(rax.errorfile.eql?(""))
