@@ -27,11 +27,15 @@ class RaxmlController < ApplicationController
     heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
     heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
     
+    getInfo
+    
+  end
+
+  def getInfo
     ips = Userinfo.find(:all)
     @ip_counter = (ips.size) - 1   # - c.c.c.c
     userinfo  = Userinfo.find(:first, :conditions => {:ip => "c.c.c.c"})
     @submission_counter = userinfo.overall_submissions
-    
   end
 
   def submitJob
@@ -161,6 +165,9 @@ class RaxmlController < ApplicationController
   end
    
   def wait
+    @ip_counter = 0;
+    @submission_counter = 0;
+    getInfo
     @raxml = Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
     @ip = request.env['REMOTE_ADDR']
     if !(jobIsFinished?(@raxml.jobid))
@@ -199,6 +206,9 @@ class RaxmlController < ApplicationController
   end
 
   def results
+    @ip_counter = 0;
+    @submission_counter = 0;
+    getInfo
     rax =  Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
     res  =  RaxmlResultsParser.new(rax.outfile)
     @files = res.files

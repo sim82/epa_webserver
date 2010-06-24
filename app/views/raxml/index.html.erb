@@ -1,87 +1,122 @@
-<h1>RAxML</h1>
-
 
 <%= error_messages_for :raxml, :header_message => "There were #{@raxml.errors.size} errors in your input!" %>
 
-<%= "IPs: #{@ip_counter}   Submissions: #{@submission_counter}" %>
 <% form_tag ({:action => 'submitJob'},:multipart => true) do %>
 
-<p><label for="raxml_alifile">Select alignment file</label> : 
-  <%= file_field 'raxml', 'alifile' %>
-</p>
-Upload unaligned query reads  <input id="qfile" name="qfile" type="checkbox" value="T" onclick="showHideCheckboxElements('qfile','queryfile')"/>
-<div class="optionLevel1"  id="queryfile" style="visibility:hidden">
-  <p><label for="raxml_readfile">Select query file</label> : 
-    <%= file_field 'raxml', 'queryfile' %>
-  </p>
-  <p>Cluster query reads <%= check_box_tag "cluster", "T"%> </p>
+<!-- upload alignmentfile -->
+<div class="clearfix" id="upload_wrapper">
+
+  <div id="first_upload">
+    <p><label for="raxml_alifile">Select alignment file</label> : 
+      <div id="upload">
+        <%= file_field 'raxml', 'alifile' %>
+      </div>
+    </p>
+  </div>
+  <!-- upload treefile -->
+  <div id ="second_upload">
+    <p><label for="tree_file">Select tree file</label> : 
+      <div id="upload">
+        <%= file_field 'treefile', 'file' %>
+      </div>
+    </p>
+  </div>
 </div>
-<p><label for="tree_file">Select tree file</label> : 
-  <%= file_field 'treefile', 'file' %>
-</p>
-
-<p>Query type: <label for = "query">DNA</label>
-  <input  id="query_DNA" name="query" type="radio" value="DNA" checked="checked" onclick="document.getElementById('DNA').style.visibility='visible';document.getElementById('AA').style.visibility='hidden' ; document.getElementById('PAR').style.visibility='hidden'" />
-  AA<input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.visibility='hidden';document.getElementById('AA').style.visibility='visible'; document.getElementById('PAR').style.visibility='hidden'"/>
-PARTIONED<input  id="query_PAR" name="query" type="radio" value="PAR"   onclick="document.getElementById('DNA').style.visibility='hidden';document.getElementById('AA').style.visibility='hidden'; document.getElementById('PAR').style.visibility='visible'"/>
-</p>
-
-<!-- DNA models -->
-<div class="optionLevel1" id="DNA" style="visibility:visible" >  
-  <p><label for = "dna_substmodel">Models </label> : 
-    <%= select_tag "dna_substmodel", "#{@dna_model_options}" %>
-  </p>
-</div>
-
-<!-- Amino Acid models -->
-<div class="optionLevel1" id="AA" style="visibility:hidden">
-  <p><label for = "aa_substmodel">Models </label> : 
-    <%= select_tag "aa_substmodel", "#{@aa_model_options}" %>
-    <%= select_tag "matrix", "#{@aa_matrices}" %>
-  </p>
- <p>Use empirical base frequencies <%= check_box_tag "sm_float", "[F]"%> </p>
+<!-- upload optional query reads -->
+<div id="third_upload">
+  Upload unaligned query reads  <input id="qfile" name="qfile" type="checkbox" value="T" onclick="showHideCheckboxElements('qfile','queryfile')"/>
+  <div class="optionLevel1"  id="queryfile" style="display:none">
+    <p><label for="raxml_readfile">Select query file</label> : 
+      <div id="upload">
+        <%= file_field 'raxml', 'queryfile' %>
+      </div>
+    </p>
+   <div class="optionLevel1" >Cluster query reads <%= check_box_tag "cluster", "T"%></div>
+  </div>
 </div>
 
-<!-- Partioned models -->
-<div class="optionLevel1"  id="PAR" style="visibility:hidden">
-  <p><label for = "par_substmodel">Rate Heterogeneity Model </label> : 
-    <%= select_tag "par_substmodel", "#{@par_model_options}" %>
-   <p> <label for="raxml_parfile"> Partition File</label> : 
-    <%= file_field 'raxml', 'parfile' %></p>
+<!-- Select query type -->
+<div class="clearfix"  id="query_wrapper">
+<div id="query_type">
+  <p><label for = "query"> Query type: </label>
+    
+    DNA  <input  id="query_DNA" name="query" type="radio" value="DNA" checked="checked" onclick="document.getElementById('DNA').style.display='block';document.getElementById('AA').style.display='none' ; document.getElementById('PAR').style.display='none'" />
+    
+    AA<input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='block'; document.getElementById('PAR').style.display='none'"/>
+    
+    PARTIONED <input  id="query_PAR" name="query" type="radio" value="PAR"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='none'; document.getElementById('PAR').style.display='block'"/>
+    </p>
+</div>
+<div id="models">
+  <!-- DNA models -->
+  <div id="DNA" style="display:block" >  
+    <p><label for = "dna_substmodel">Models </label> : 
+      <%= select_tag "dna_substmodel", "#{@dna_model_options}" %>
+    </p>
+  </div>
+  
+  <!-- Amino Acid models -->
+  <div id="AA" style="display:none">
+    <p><label for = "aa_substmodel">Models </label> : 
+      <%= select_tag "aa_substmodel", "#{@aa_model_options}" %>
+      <%= select_tag "matrix", "#{@aa_matrices}" %>
+    </p>
+    <p>Use empirical base frequencies <%= check_box_tag "sm_float", "[F]"%> </p>
+  </div>
+  
+  <!-- Partioned models -->
+  <div  id="PAR" style="display:none">
+    <p><label for = "par_substmodel">Rate Heterogeneity Model </label> : 
+      <%= select_tag "par_substmodel", "#{@par_model_options}" %>
+    <p> <label for="raxml_parfile"> Partition File</label> : 
+      <%= file_field 'raxml', 'parfile' %></p>
+    </p>
+  </div>
+</div>
+
+</div>
+<!-- Select speed -->
+<div id="speed">
+  <p><label for = "speed">Speed</label>: 
+    fast<%= radio_button_tag 'speed', 'y', true%>
+    slow<%= radio_button_tag 'speed', 'v'%>
   </p>
 </div>
 
-<p><label for = "speed">Speed</label>: 
-  fast<%= radio_button_tag 'speed', 'y', true%>
-  slow<%= radio_button_tag 'speed', 'v'%>
-</p>
 
-Use Bootstrapping <input id="chBoot" name="chBoot" type="checkbox" value="T" onclick="optionalCheckboxElements('bootstrap','chBoot','heuristic','chHeu')"/>
-<div class="optionLevel1"  id="bootstrap" style="visibility:hidden" >
-  <p><label for = "bootstrap">Random seed</label> : 
-    <%= text_field_tag "random_seed",1234,  :size =>4 %></p> 
-  <p><label for = "bootstrap">Number of runs</label> :
-    <%= text_field_tag "runs",100,  :size =>4 %>
-  </p>
+<div id="boots_heu">
+  <!-- Select bootstrapping -->
+  Use Bootstrapping <input id="chBoot" name="chBoot" type="checkbox" value="T" onclick="optionalCheckboxElements('bootstrap','chBoot','heuristic','chHeu')"/>
+  or  Use Heuristics <input id="chHeu" name="chHeu" type="checkbox" value="T" onclick="optionalCheckboxElements('heuristic','chHeu','bootstrap','chBoot')" />
+  <div class="optionLevel1"  id="bootstrap" style="display:none" >
+    <p><label for = "bootstrap">Random seed</label> : 
+      <%= text_field_tag "random_seed",1234,  :size =>4 %></p> 
+    <p><label for = "bootstrap">Number of runs</label> :
+      <%= text_field_tag "runs",100,  :size =>4 %>
+    </p>
+  </div>
+  
+  <!-- Select Heuristics -->
+ 
+  <div class="optionLevel1" id="heuristic" style="display:none">
+    <p><label for = "heuristic">Heuristic </label> : 
+      <%= select_tag "heuristic", "#{@heuristics}" %>
+      <%= select_tag "heu_float","#{@heuristics_values}"%>
+    </p>
+  </div>
 </div>
-
-
-Use Heuristics <input id="chHeu" name="chHeu" type="checkbox" value="T" onclick="optionalCheckboxElements('heuristic','chHeu','bootstrap','chBoot')" />
-<div class="optionLevel1" id="heuristic" style="visibility:hidden">
-  <p><label for = "heuristic">Heuristic </label> : 
-    <%= select_tag "heuristic", "#{@heuristics}" %>
-    <%= select_tag "heu_float","#{@heuristics_values}"%>
-  </p>
-</div>
-
-
+ <%= submit_tag "Submit" %>
+<div id="email">
+<!-- Email address field -->
 <p><label for="raxml_email">Email for notification(optional)</label> : 
   <%= text_field_tag "rax_email",nil,  :size =>40 %>
-</p> 
-<%= submit_tag "Submit" %>
-<% end %>
-<% form_tag ({:action => 'index'},:multipart => true) do %>
-<%= submit_tag "Reset" %>
-<% end%>
+</p>
+ </div>
+  <% end %>
+<div id="reset_tag">
+  <% form_tag ({:action => 'index'},:multipart => true) do %>
+  <%= submit_tag "Reset form" %>
+  <% end%>
+</div>
 
 

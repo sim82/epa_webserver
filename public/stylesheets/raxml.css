@@ -1,21 +1,166 @@
-div.header {
-    line-height: 50px;
-    vertical-align: middle;
+body {
     text-align: center;
+    max-width: 1280px;
+    min-width: 800px;
+    font-family:verdana, arial,sans-serif;
+    font-size:1em;
+    
+    
+    
 }
-div.sidebar {
+
+
+#main_wrapper{
+    margin-left:auto;
+    margin-right:auto;
+    text-align:left;
+}
+
+
+#header {
+    text-align:center;
+}
+
+#header_inner {
+    border-width: 1px;
+    border-style:solid;
+}
+
+#spacer{
+    height:50px;
+}
+
+#sidebar{
+    width:200px;
+    float:left;
+}
+
+#sidebar_inner{
+    padding:0.9em;
+    
+}
+
+#nav{
+}
+
+#nav li{  
+    list-style-type:none;
+    line-height:3.0;
+    text-align:center; 
+    font-weight:bold;
+}
+
+li a {
+    display:block;
+    text-decoration:none;
+    color:#4988b5;
+    
+}
+li a:hover {
+    display:block;
+    text-decoration:none;
+    color:#ffffff;
+    background-color:#e2ecf3;
+}
+
+#counter{
+    border: 1px solid #4988b5;
+}
+#counter ul{
+    font-size:0.8em;
+    list-style-type:none;
+}
+
+#jobs{
+}
+
+
+#content{
+    margin-left:200px;
+    font-size:0.9em;
+    
+    
+}
+
+#content_inner{
+    border-top:3px solid #4988b5;
+    border-left:3px solid #4988b5;
+    padding-top:0.5em;
+    padding-left:2em;
+    padding-right:2em;
+  }
+#upload_wrapper{
+    border-bottom: 1px dotted;
+}
+
+#first_upload{
+    float:left;
+    padding-bottom:1em;
+    padding-right:2em;
+}
+#second_upload{
+    float:left;
+    padding-bottom:1em;
+}
+
+#third_upload{
+    padding-top:1em;
+    padding-bottom:1em;
+    border-bottom: 1px dotted;
+}
+
+#query_wrapper{
+    border-bottom: 1px dotted;
+}
+#query_type{
+    float:left;
+    padding-right:6em;
+}
+#models{
+    float:left
+}
+#speed{   
+    border-bottom: 1px dotted;
+}
+#boots_heu{
+    border-bottom: 1px solid; 
+    padding-top:1em;
+    padding-bottom:1em;
 
 }
-div.mainsection {
 
+#email{
+     padding-top:2em;
 }
 
-div.footer {
+#upload {
+}
 
+#footer{
+    text-align:center;
+    clear:both;
+}
+
+#footer_inner{
+    border-width: 1px;
+    border-style:solid;
+}
+
+#header_inner,#nav,#counter,footer_inner,#content_inner{
+    overflow: hidden;
 }
 
 div.optionLevel1{
-    	text-indent:20px;
+    text-indent:30px;	
+        
+}
+
+
+
+#reset_tag{
+   display:block;
+   clear:both;
+   padding-top:2em;
 }
 
 
@@ -31,3 +176,14 @@ div.optionLevel1{
     border: 2px solid red;
     font-weight: bold;
 }
+
+.clearfix:after{
+    content:".";
+    display: block;
+    height:0;
+    clear:both;
+    visibility:hidden;
+}
+
+.clearfix {display:inline-table;}
+.clearfix{display:block;}
