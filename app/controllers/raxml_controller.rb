@@ -1,50 +1,53 @@
 class RaxmlController < ApplicationController
   def index
+    
     @dna_model_options = ""
+    @aa_model_options = ""
+    @aa_matrices = ""
+    @par_model_options  =""
+    @heuristics =""
+    @heuristics_values =""
+    @ip_counter = 0;
+    @submission_counter = 0;
+    initialize_options
+    @raxml = Raxml.new
+  end
+
+  def initialize_options
     models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
     models.each {|m| @dna_model_options= @dna_model_options+"<option>#{m}</option>"}
-    @aa_model_options = ""
     models = ["PROTGAMMA","PROTGAMMAI","PROTCAT","PROTCATI"]
     models.each {|m| @aa_model_options= @aa_model_options+"<option>#{m}</option>"}
-    @aa_matrices = ""
     matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG"]
     matrices.each {|m| @aa_matrices= @aa_matrices+"<option>#{m}</option>"}
-    @par_model_options  =""
     models = ["GAMMA", "GAMMAI", "CAT", "CATI"]
     models.each {|m| @par_model_options= @par_model_options+"<option>#{m}</option>"}
-    @heuristics =""
     heuristics = ["MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
-    @heuristics_values =""
     heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
     heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
-    @raxml = Raxml.new
+    
+    ips = Userinfo.find(:all)
+    @ip_counter = (ips.size) - 1   # - c.c.c.c
+    userinfo  = Userinfo.find(:first, :conditions => {:ip => "c.c.c.c"})
+    @submission_counter = userinfo.overall_submissions
+    
   end
 
   def submitJob
     @jobid = generateJobID
-    puts "####{@jobid}"
     @dna_model_options = ""
-    models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
-    models.each {|m| @dna_model_options= @dna_model_options+"<option>#{m}</option>"}
     @aa_model_options = ""
-    models = ["PROTGAMMA","PROTGAMMAI","PROTCAT","PROTCATI"]
-    models.each {|m| @aa_model_options= @aa_model_options+"<option>#{m}</option>"}
     @aa_matrices = ""
-    matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG"]
-    matrices.each {|m| @aa_matrices= @aa_matrices+"<option>#{m}</option>"}
     @par_model_options  =""
-    models = ["GAMMA", "GAMMAI", "CAT", "CATI"]
-    models.each {|m| @par_model_options= @par_model_options+"<option>#{m}</option>"}
     @heuristics =""
-    heuristics = ["MP","ML"]
-    heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
     @heuristics_values =""
-    heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
-    heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
+    @ip_counter = 0;
+    @submission_counter = 0;
+    initialize_options
     
     @direcrory = nil
-    
+    @ip = request.env['REMOTE_ADDR']
     @query = params[:query]
     @speed = params[:speed]
     @substmodel = ""
@@ -96,29 +99,39 @@ class RaxmlController < ApplicationController
       @use_queryfile = "F"
     end
     buildJobDir
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering, :jobid => @jobid})
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering, :jobid => @jobid, :user_ip => @ip})
     
     
     if @raxml.save
- #     @alifile = saveInfile(@raxml.alifile, "alignment_file")
- #     @raxml.update_attribute(:alifile,@alifile)
       @raxml.update_attribute(:outfile,"#{@raxml.jobid}")
-
-#      @treefile = saveInfile(@raxml.treefile, "tree_file")
-#      @raxml.update_attribute(:treefile,@treefile)
-      
-#      if @query.eql?("PAR")
-#        @parfile = saveInfile(@raxml.parfile, "partition_file")
-#        @raxml.update_attribute(:parfile,@parfile)
-#      end
-
-#      if @use_queryfile.eql?("T")
-#        @queryfile = saveInfile(@raxml.queryfile, "query_file")
-#        @raxml.update_attribute(:queryfile,@queryfile)
-#      end
       link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.jobid
       @raxml.execude(link,@raxml.jobid.to_s)
-      sleep 2
+
+      ## save userinfos
+      ip = request.env['REMOTE_ADDR']
+      if ip.eql?("") || ip.nil?
+        ip = "xxx.xxx.xxx.xxx"
+      end
+      if Userinfo.exists?(:ip => ip)
+        userinfo = Userinfo.find(:first, :conditions => {:ip => ip})
+        userinfo.update_attribute(:saved_submissions, userinfo.saved_submissions+1)
+        userinfo.update_attribute(:overall_submissions, userinfo.overall_submissions+1)
+      else
+        userinfo = Userinfo.new({:ip => ip, :saved_submissions => 1, :overall_submissions => 1})
+        userinfo.save
+      end
+      #### main counter c.c.c.c   ## faster but accurate?
+      counter_ip = "c.c.c.c"
+      if Userinfo.exists?(:ip => counter_ip)
+        userinfo = Userinfo.find(:first, :conditions => {:ip => counter_ip })
+        userinfo.update_attribute(:saved_submissions, userinfo.saved_submissions+1)
+        userinfo.update_attribute(:overall_submissions, userinfo.overall_submissions+1)
+      else
+        userinfo = Userinfo.new({:ip => counter_ip, :saved_submissions => 1, :overall_submissions => 1})
+        userinfo.save
+      end
+
+      sleep 2 #Without this, an error occurs. Somehow the writing in the database is not fast enough
       redirect_to :action => 'wait', :id => @raxml.jobid 
     else
       @raxml.errors.each do |field, error|
@@ -133,13 +146,6 @@ class RaxmlController < ApplicationController
     @directory = "#{RAILS_ROOT}/public/jobs/#{@jobid}/"
     Dir.mkdir(@directory) rescue system("rm -r #{@directory}; mkdir #{@directory}")
   end
-
-#  def saveInfile(stream, file_name)
-#    file_name = @directory+file_name
-#    #file = @directory+stream.original_filename
-#    File.open(file_name, "wb") { |f| f.write(stream) }
-#    return file_name
-#  end
 
   def generateJobID
     id = "#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}#{rand(9)}"	
@@ -156,19 +162,12 @@ class RaxmlController < ApplicationController
    
   def wait
     @raxml = Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
-   # if pidAlive?(rax.pid)
+    @ip = request.env['REMOTE_ADDR']
     if !(jobIsFinished?(@raxml.jobid))
       render :action => "wait"
     else
       redirect_to :action => "results" , :id => @raxml.jobid
     end
-  end
-
-  def pidAlive?(pid)
-    Process.kill(0, Integer(pid))
-    return true
-  rescue 
-    return false
   end
 
   def jobIsFinished?(id)
@@ -204,9 +203,7 @@ class RaxmlController < ApplicationController
     res  =  RaxmlResultsParser.new(rax.outfile)
     @files = res.files
     @names = res.names
-#    @root = "http://lxexelixis1:3000"
     @root  = "#{ENV['SERVER_ADDR']}:3000"
-#    @root = "http://lxexelixis1.informatik.tu-muenchen.de:3000"
     @path = "/jobs/#{rax.jobid}/"
     if !(rax.errorfile.eql?(""))
       @files << rax.errorfile
