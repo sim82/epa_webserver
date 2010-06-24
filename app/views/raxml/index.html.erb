@@ -3,6 +3,7 @@
 
 <%= error_messages_for :raxml, :header_message => "There were #{@raxml.errors.size} errors in your input!" %>
 
+<%= "IPs: #{@ip_counter}   Submissions: #{@submission_counter}" %>
 <% form_tag ({:action => 'submitJob'},:multipart => true) do %>
 
 <p><label for="raxml_alifile">Select alignment file</label> : 
