@@ -1,6 +1,6 @@
 class RaxmlController < ApplicationController
   def index
-    
+  
     @dna_model_options = ""
     @aa_model_options = ""
     @aa_matrices = ""
@@ -27,11 +27,15 @@ class RaxmlController < ApplicationController
     heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
     heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
     
+    getInfo
+    
+  end
+
+  def getInfo
     ips = Userinfo.find(:all)
     @ip_counter = (ips.size) - 1   # - c.c.c.c
     userinfo  = Userinfo.find(:first, :conditions => {:ip => "c.c.c.c"})
     @submission_counter = userinfo.overall_submissions
-    
   end
 
   def submitJob
@@ -49,7 +53,7 @@ class RaxmlController < ApplicationController
     @direcrory = nil
     @ip = request.env['REMOTE_ADDR']
     @query = params[:query]
-    @speed = params[:speed]
+    @speed = params[:speed][:speed]
     @substmodel = ""
     @matrix = nil
     @sm_float = nil
@@ -161,6 +165,9 @@ class RaxmlController < ApplicationController
   end
    
   def wait
+    @ip_counter = 0;
+    @submission_counter = 0;
+    getInfo
     @raxml = Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
     @ip = request.env['REMOTE_ADDR']
     if !(jobIsFinished?(@raxml.jobid))
@@ -199,6 +206,9 @@ class RaxmlController < ApplicationController
   end
 
   def results
+    @ip_counter = 0;
+    @submission_counter = 0;
+    getInfo
     rax =  Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
     res  =  RaxmlResultsParser.new(rax.outfile)
     @files = res.files
@@ -215,4 +225,52 @@ class RaxmlController < ApplicationController
     file = params[:file]
     send_file file
   end
+
+  def home
+    getInfo
+  end
+  
+  def look
+    getInfo
+    @error = ""
+    if !(params[:id].nil?)
+      @error = "The job id \'#{params[:id]}\' does not exists!"
+    end
+  end
+
+  def findJob
+    jobid = params[:rax_job]
+    if Raxml.exists?(:jobid => jobid)
+      redirect_to :action => "results" , :id => jobid
+    else
+      redirect_to :action => "look" ,:id => jobid
+    end
+  end
+  
+  def contact
+    getInfo
+    @error = ""
+    if !(params[:id].nil?)
+      @error = "An error occurres, please try again!"
+    end
+  end
+
+  def sendMessage
+    message = params[:rax_message]
+    if Raxml.sendMessage(message)
+      redirect_to :action => "confirmation"
+    else
+      redirect_to :action => "contact", :id=>1
+    end
+  end
+
+  def confirmation
+    getInfo
+  end
+
+  def about
+    getInfo
+  end
+
+ 
 end

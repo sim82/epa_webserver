@@ -137,4 +137,11 @@ class Raxml < ActiveRecord::Base
     end      
   end
 
+  def Raxml.sendMessage(message)
+    command = "#{RAILS_ROOT}/bioprogs/ruby/send_message.rb #{message}"
+    puts command
+    system command
+    return true
+  end
+
 end
