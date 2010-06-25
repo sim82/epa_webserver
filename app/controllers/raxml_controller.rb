@@ -1,6 +1,6 @@
 class RaxmlController < ApplicationController
   def index
-    
+  
     @dna_model_options = ""
     @aa_model_options = ""
     @aa_matrices = ""
@@ -53,7 +53,7 @@ class RaxmlController < ApplicationController
     @direcrory = nil
     @ip = request.env['REMOTE_ADDR']
     @query = params[:query]
-    @speed = params[:speed]
+    @speed = params[:speed][:speed]
     @substmodel = ""
     @matrix = nil
     @sm_float = nil
@@ -225,4 +225,52 @@ class RaxmlController < ApplicationController
     file = params[:file]
     send_file file
   end
+
+  def home
+    getInfo
+  end
+  
+  def look
+    getInfo
+    @error = ""
+    if !(params[:id].nil?)
+      @error = "The job id \'#{params[:id]}\' does not exists!"
+    end
+  end
+
+  def findJob
+    jobid = params[:rax_job]
+    if Raxml.exists?(:jobid => jobid)
+      redirect_to :action => "results" , :id => jobid
+    else
+      redirect_to :action => "look" ,:id => jobid
+    end
+  end
+  
+  def contact
+    getInfo
+    @error = ""
+    if !(params[:id].nil?)
+      @error = "An error occurres, please try again!"
+    end
+  end
+
+  def sendMessage
+    message = params[:rax_message]
+    if Raxml.sendMessage(message)
+      redirect_to :action => "confirmation"
+    else
+      redirect_to :action => "contact", :id=>1
+    end
+  end
+
+  def confirmation
+    getInfo
+  end
+
+  def about
+    getInfo
+  end
+
+ 
 end

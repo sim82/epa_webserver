@@ -4,7 +4,7 @@ body {
     min-width: 800px;
     font-family:verdana, arial,sans-serif;
     font-size:1em;
-    
+    background-color:#f6f7f8;
     
     
 }
@@ -14,6 +14,7 @@ body {
     margin-left:auto;
     margin-right:auto;
     text-align:left;
+    background-color:#ffffff;
 }
 
 
@@ -85,12 +86,17 @@ li a:hover {
 #content_inner{
     border-top:3px solid #4988b5;
     border-left:3px solid #4988b5;
-    padding-top:0.5em;
+    padding-top:2em;
     padding-left:2em;
-    padding-right:2em;
+    background-color:#f6f7f8;
+   /* padding-right:2em; */
   }
 #upload_wrapper{
-    border-bottom: 1px dotted;
+    /*border-bottom: 1px dotted;*/
+    margin:0.2em;
+    border: 1px solid  #4988b5;
+    background-color:#e2ecf3;
+    padding-left: 1em;
 }
 
 #first_upload{
@@ -104,13 +110,22 @@ li a:hover {
 }
 
 #third_upload{
-    padding-top:1em;
+    /*padding-top:1em;
     padding-bottom:1em;
-    border-bottom: 1px dotted;
+    border-bottom: 1px dotted; */
+    margin:0.2em;
+    border: 1px solid  #4988b5;
+    background-color:#e2ecf3;
+    padding-left: 1em;
+    
 }
 
 #query_wrapper{
-    border-bottom: 1px dotted;
+/*    border-bottom: 1px dotted;*/
+    margin:0.2em;
+    border: 1px solid  #4988b5;
+    background-color:#e2ecf3;
+    padding-left: 1em;
 }
 #query_type{
     float:left;
@@ -120,18 +135,45 @@ li a:hover {
     float:left
 }
 #speed{   
-    border-bottom: 1px dotted;
+    margin:0.2em;
+    border: 1px solid  #4988b5;
+    background-color:#e2ecf3;
+    padding-left: 1em;
+    /* border-bottom: 1px dotted;*/
 }
 #boots_heu{
-    border-bottom: 1px solid; 
+    margin:0.2em;
+    border: 1px solid  #4988b5;
+    background-color:#e2ecf3;
+    padding-left: 1em;
+    /*border-bottom: 1px solid; 
     padding-top:1em;
-    padding-bottom:1em;
+    padding-bottom:1em;*/
 
 }
 
 #email{
-     padding-top:2em;
+    margin:0.2em;
+    border: 1px solid  black;
+    background-color:#ffffff;
+    padding-left: 1em;
+    padding-right: 1em;
+    float:left;
+/*  padding-top:2em;*/ 
 }
+
+#submit_button{
+    float:left;
+   
+}
+
+#block{
+    margin:0.2em;
+    border: 1px solid  #4988b5;
+    background-color:#ffffff;
+    padding:0.2em;
+    padding-left: 1em;
+   }
 
 #upload {
 }
@@ -140,6 +182,7 @@ li a:hover {
     text-align:center;
     clear:both;
 }
+
 
 #footer_inner{
     border-width: 1px;
@@ -164,7 +207,10 @@ div.optionLevel1{
 }
 
 
-
+#error{
+    font-size:1em;
+    color:red;
+}
 
 
 .errorExplanation {
