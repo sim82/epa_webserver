@@ -1,0 +1,5 @@
+<% @jobids.each_index do |i| %>
+<li><%= link_to @jobids[i], :action => 'results', :id => @jobids[i]%><%= @jobdescs[i] %></li>
+<% end %>
+
+

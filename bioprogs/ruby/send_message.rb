@@ -8,7 +8,45 @@ SERVER_NAME = ENV['SERVER_NAME']
 class SendMessage 
 
   def initialize(opts)
-    @message = opts.join(" ")
+    @name =""
+    @email =""
+    @subject =""
+    @message =""
+    i = 0
+    while i<opts.size
+      if opts[i].eql?("-n")
+        @name = opts[i+1]
+        i = i+1
+      elsif
+        opts[i].eql?("-e")
+        @email = opts[i+1]
+        i = i+1
+      elsif
+        opts[i].eql?("-s")
+        @subject = opts[i+1]
+        i = i+1
+      elsif opts[i].eql?("-m")
+        @message = opts[i+1]
+        i = i+1
+      end
+      i = i+1
+    end
+    if @name.eql?("")
+      @name = "NONAME"
+    else
+      @name = @name.gsub(/\_\_/," ")
+    end
+    if @email.eql?("")
+      @email = "NOEMAIL"
+    end
+
+    if @subject.eql?("")
+      @subject= "Contact message from webserver with no subject."
+    else
+      @subject = @subject.gsub(/\_\_/," ")
+    end
+    @message = @message.gsub(/\_\_/," ")
+    @message =  @message.gsub(/\#n\#/,"\n")
     @email_address1 = "Denis.Krompass@campus.lmu.de"
     @email_address2 = "stamatak@in.tum.de"
     @email_address3 = "bergers@in.tum.de"
@@ -20,13 +58,13 @@ class SendMessage
     Net::SMTP.start('localhost', 25) do |smtp|
       smtp.open_message_stream("#{ENV['SERVER_NAME']}", @email_address1) do |f|
         
-        f.puts "From: #{ENV['SERVER_NAME']}"
+        f.puts "From: RAxMLWS.Contact"
         
         f.puts "To: #{@email_address}"
 
-        f.puts 'Subject: RAxMLWS message'
+        f.puts "Subject: RAxML Webserver message: #{@subject}"
         
-        f.puts "#{@message}"
+        f.puts "#{@name} (#{@email}) sent following message:\n #{@message}"
       end
     end
   end

@@ -1,152 +1,84 @@
-<div id="sidebar">
-  <div id="sidebar_inner">
-    <div id="nav">
+<h1>About EPA</h1>
+
+<div id="block">
+  <h2>RAxML - Evolutionary Placement Algorithm</h2>
+  <p>The Evolutionary Placement Algorithm (EPA) forms part of the standard RAxML release version 726.</p>
+  
+  <p>The EPA algorithm works as follows:</p>
+  
+  <div id="text">
+    <h3>Input:</h3>
+    <p>A multiple sequence alignment in standard RAxML relaxed PHYLIP format
+    that contains full length reference sequences and short reads that have been aligned
+    with respect to the MSA of the full length reference sequences.</p>
+    <p>A reference tree topology that entails all full length reference sequences of the MSA.</p>
+  </div>
+
+  <div id="text">
+    <h3>Algorithm:</h3>
+    
+    <p>The EPA algorithm will initially read in the alignment and the reference tree.
+    Those taxa of the alignment that are contained in this tree will be marked as reference sequences
+    whereas the taxa not contained in the tree will ba marked as query sequences.</p>
+    
+    <p>Initially, RAxML will optimize ML model parameters and branch lengths on the reference tree topology.</p>
+    
+    <p>Thereafter, RAxML compute the optimal insertion branch (under Maximum Likelihood)
+    in the reference tree for each query sequence (short read), that is, it will assign reads to branches
+    of the tree potentially as multi-furcations, if more than one read is assigned to a branch of the reference tree.
+    Essentially, we are calculating the distribution of reads over the branches of the tree.</p>
+    
+    <p>In addition to the straight-forward assignment of each read (query sequence) to one specific branch via ML,
+    the EPA algorithm can also quantify palcement uncertainty via Likelihood weights (recommended) or standard
+    phylogenetic bootstrapping.</p>
+  </div>
+  
+  <div id="text">
+    <h3>Output:</h3>
+  
+    <p>The EPA algorithm returns several plain text files that can then be used for analyzing the results (appropriate
+    diversity metrics are currently under development).</p>
+    
+    <p>It will return the reference tree for the full length sequences with branch lengths and branch labels.
+    In addition, the program returns a classification file that contains the assignment of query sequences (reads)
+    to the branch labels of the reference tree topology. If bootstrapping or likelihood weights are used, this file
+    will contain multiple branch labels for each query sequence including the likelihood weight or bootstrap support values
+    for each placement.</p>
+  </div>
+
+  <div id="text">
+    <h3>Documentation:</h3>
+    
+    <p>The original EPA algorithm is described in:
+    <a href="http://wwwkramer.in.tum.de/exelixis/pubs/Exelixis-RRDR-2009-3.pdf">Exelixis-RRDR-2009-3.pdf</a></p>
+    
+    <p>The parallelization of the EPA algorithm is described in: <a href="http://wwwkramer.in.tum.de/exelixis/pubs/Exelixis-RRDR-2009-2.pdf">Exelixis-RRDR-2009-2.pdf</a></p>
+
+    <p>A video of a talk about the EPA by Alexis Stamatakis is available here:
+    <a href="http://www.scivee.tv/node/16283">http://www.scivee.tv/node/16283</a></p>
+  </div>
+
+  <div id="text">
+    <h3>Additional Capabilities of the Web-Server:</h3>
+    
+    <p>The Web-Server offers some additional capabilities:</p>
+    
+    <p>
+    <ul>
+      <li>The web-server can align the short reads to a given reference alignment of full-length sequences
+        via hmmalign.</li>
       
-      <li><%= link_to "Home", :action => 'home'%></li>
-      <li><%= link_to ">> Submit job <<", :action => 'index'%></li>
-      <li><%= link_to "Look up jobs", :action => 'look'%></li>
-      <li<%= link_to "Contact", :action => 'contact'%></li>
-      <li><%= link_to "About", :action => 'about'%></li>
+      <li>Prior to th hmmalign step, the web-server can cluster and thereby reduce the number of reads by deploying the
+        novel method UCLUST developed by RC Edgar <a href="http://www.drive5.com/usearch/index.html">http://www.drive5.com/usearch/index.html</a></li>
       
-    </div>
-    <div id="spacer">
-    </div>
-    <div id="counter">
-      <ul>
-        <li>Visitors: <%= @ip_counter %></li>
-        <li>Submissions: <%= @submission_counter %></li>
-      </ul>
-    </div>
-    <div id="jobs">
-    </div>
+      <li>The web-server can visualize EPA run results for you.</li>
+    </ul>
+    </p>
+    <p>If you intend to use multi-gene alignments, the server can currently not assign reads from a sample to different genes,
+    but we are working on implementing such a method.</p>
   </div>
 </div>
-<div id="content">
-  <div id="content_inner">
-    <%= error_messages_for :raxml, :header_message => "There were #{@raxml.errors.size} errors in your input!" %>
-    
-    <% form_tag({:action => 'submitJob'},:multipart => true) do %>
-    
-    <!-- upload alignmentfile -->
-    <div class="clearfix" id="block">
-      
-      <div id="first_upload">
-        <p><label for="raxml_alifile">Select alignment file</label> : 
-          <div id="upload">
-            <%= file_field 'raxml', 'alifile' %>
-          </div>
-        </p>
-      </div>
-      <!-- upload treefile -->
-      <div id ="second_upload">
-        <p><label for="tree_file">Select tree file</label> : 
-          <div id="upload">
-            <%= file_field 'treefile', 'file' %>
-          </div>
-        </p>
-      </div>
-    </div>
-    <!-- upload optional query reads -->
-    <div id="block">
-      Upload unaligned query reads  <input id="qfile" name="qfile" type="checkbox" value="T" onclick="showHideCheckboxElements('qfile','queryfile')"/>
-      <div class="optionLevel1"  id="queryfile" style="display:none">
-        <p><label for="raxml_readfile">Select query file</label> : 
-          <div id="upload">
-            <%= file_field 'raxml', 'queryfile' %>
-          </div>
-        </p>
-        <div class="optionLevel1" >Cluster query reads <%= check_box_tag "cluster", "T"%></div>
-      </div>
-    </div>
-    
-    <!-- Select query type -->
-    <div class="clearfix"  id="block">
-      <div id="query_type">
-        <p><label for = "query"> Query type: </label>
-          
-          DNA  <input  id="query_DNA" name="query" type="radio" value="DNA" checked="checked" onclick="document.getElementById('DNA').style.display='block';document.getElementById('AA').style.display='none' ; document.getElementById('PAR').style.display='none'" />
-    
-          AA<input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='block'; document.getElementById('PAR').style.display='none'"/>
-          
-          PARTIONED <input  id="query_PAR" name="query" type="radio" value="PAR"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='none'; document.getElementById('PAR').style.display='block'"/>
-        </p>
-      </div>
-      <div id="models">
-        <!-- DNA models -->
-        <div id="DNA" style="display:block" >  
-          <p><label for = "dna_substmodel">Models </label> : 
-            <%= select_tag "dna_substmodel", "#{@dna_model_options}" %>
-          </p>
-        </div>
-        
-        <!-- Amino Acid models -->
-        <div id="AA" style="display:none">
-          <p><label for = "aa_substmodel">Models </label> : 
-            <%= select_tag "aa_substmodel", "#{@aa_model_options}" %>
-            <%= select_tag "matrix", "#{@aa_matrices}" %>
-          </p>
-          <p>Use empirical base frequencies <%= check_box_tag "sm_float", "[F]"%> </p>
-        </div>
-        
-        <!-- Partioned models -->
-        <div  id="PAR" style="display:none">
-          <p><label for = "par_substmodel">Rate Heterogeneity Model </label> : 
-            <%= select_tag "par_substmodel", "#{@par_model_options}" %>
-          <p> <label for="raxml_parfile"> Partition File</label> : 
-            <%= file_field 'raxml', 'parfile' %></p>
-          </p>
-        </div>
-      </div>
-      
-    </div>
-    <!-- Select speed -->
-    <div id="block">
-      <p><label for = "speed">Fast</label>: 
-       <%= check_box ('speed', 'speed', {:checked=>'checked'} ,checked_value="y", unchecked_value="v")%>
-      </p>
-    </div>
-    
-    
-    <div id="block">
-      <!-- Select bootstrapping -->
-      Use Bootstrapping <input id="chBoot" name="chBoot" type="checkbox" value="T" onclick="optionalCheckboxElements('bootstrap','chBoot','heuristic','chHeu')"/>
-      or  Use Heuristics <input id="chHeu" name="chHeu" type="checkbox" value="T" onclick="optionalCheckboxElements('heuristic','chHeu','bootstrap','chBoot')" />
-      <div class="optionLevel1"  id="bootstrap" style="display:none" >
-        <p><label for = "bootstrap">Random seed</label> : 
-          <%= text_field_tag "random_seed",1234,  :size =>4 %></p> 
-        <p><label for = "bootstrap">Number of runs</label> :
-          <%= text_field_tag "runs",100,  :size =>4 %>
-        </p>
-      </div>
-      
-      <!-- Select Heuristics -->
-      
-      <div class="optionLevel1" id="heuristic" style="display:none">
-        <p><label for = "heuristic">Heuristic </label> : 
-          <%= select_tag "heuristic", "#{@heuristics}" %>
-          <%= select_tag "heu_float","#{@heuristics_values}"%>
-        </p>
-      </div>
-    </div>
-    <div class="clearfix" >
-      <div id="submit_button">
-        <%= submit_tag "Submit" %>
-      </div>
-      <div id="email">
-        <!-- Email address field -->
-        <p><label for="raxml_email">Email for notification(optional)</label> : 
-          <%= text_field_tag "rax_email",nil,  :size =>40 %>
-        </p>
-      </div>
-    
-    <% end %>
-    </div>
-    <div id="reset_tag">
-      <% form_tag ({:action => 'index'},:multipart => true) do %>
-      <%= submit_tag "Reset" %>
-      <% end%>
-    </div>
-  </div>
-</div>
+
+
 
 
