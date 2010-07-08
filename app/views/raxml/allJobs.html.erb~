@@ -1,0 +1,5 @@
+<% @jobids.each do |id| %>
+<li><%= link_to id, :action => 'results', :id => id%></li>
+<% end %>
+
+

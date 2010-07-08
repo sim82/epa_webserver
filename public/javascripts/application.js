@@ -35,7 +35,20 @@ function showHideCheckboxElements(checkboxID, elementsID){
         document.getElementById(elementsID).style.display = 'none';
     }
 }
-        
 
+function showTooltip(id, event)
+{
+    var yoffset = parseInt(document.body.scrollTop);
+    var xoffset = parseInt(document.body.scrollLeft);
+    var mouseY = (event.clientY) ? event.clientY : event.pageY;
+    var mouseX = (event.clientX) ? event.clientX : event.pageX;
+    document.getElementById(id).style.top  = mouseY + 20 + yoffset+ "px";
+    document.getElementById(id).style.left = mouseX + 10 + xoffset + "px";
+    document.getElementById(id).style.visibility = "visible";
+   }
+function hideTooltip(id)
+   {
+      document.getElementById(id).style.visibility = "hidden";
+   }
         
 

@@ -1,42 +1,34 @@
-<div id="sidebar">
-  <div id="sidebar_inner">
-    <div id="nav">
-      <li><%= link_to "Home", :action => 'home'%></li>
-      <li><%= link_to "Submit job", :action => 'index'%></li>
-      <li><%= link_to "Look up jobs", :action => 'look'%></li>
-      <li<%= link_to ">> Contact <<", :action => 'contact'%></li>
-      <li><%= link_to "About", :action => 'about'%></li>
-          
-    </div>
-    <div id="spacer">
-    </div>
-    <div id="counter">
-      <ul>
-        <li>Visitors: <%= @ip_counter %></li>
-        <li>Submissions: <%= @submission_counter %></li>
-      </ul>
-    </div>
-    <div id="jobs">
-    </div>
-  </div>
-</div>
-<div id="content">
-  <div id="content_inner">
-    <% form_tag({:action => 'sendMessage'},:multipart => true) do %>
-    <div id="block">
-      <p><label for="raxml_message">Enter your message here:<br></br></label>  
-        <%= text_area_tag 'rax_message', nil, :size => "60x15"%>
-      </p>
+<h1>Contact</h1>
+<% form_tag({:action => 'sendMessage'},:multipart => true) do %>
+<div id="block">
+  <h3>Send us bug reports, questions, special requests or suggestions for improvements.</h3>
+  <table>
+    <tr>
+      <td class="left"><label for="contact_name">Name:</label></td>
+      <td class="right"><%= text_field_tag "con_name",nil,  :size =>50 %> </td>
+    </tr>
+    <tr>
+      <td class="left"><label for="contact_email">Email:</label> </td>
+      <td class="right"><%= text_field_tag "con_email",nil,  :size =>50 %> </td>
+    </tr>
+    <tr>
+      <td class="left"><label for="contact_subject">Subject:</label></td> 
+      <td class="right"><%= text_field_tag "con_subject",nil,  :size =>50 %></td>
+    </tr>
+    <tr>
+      <td class="left"><label for="contact_message">Message:</label></td>
+      <td class="right"><%= text_area_tag 'con_message', nil, :size => "60x15"%></td>
       <div id="error">
-         <%= @error%>
+        <%= @error%>
       </div>
-    </div>
-    <div id="submit_button">
-      <%= submit_tag "Send" %>
-    </div>
-    <% end %>
-  
-  </div>
+    </tr>
+  </table>
 </div>
+<div id="submit_button">
+  <%= submit_tag "Send" %>
+</div>
+<% end %>
+
+
 
 

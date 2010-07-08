@@ -137,8 +137,18 @@ class Raxml < ActiveRecord::Base
     end      
   end
 
-  def Raxml.sendMessage(message)
-    command = "#{RAILS_ROOT}/bioprogs/ruby/send_message.rb #{message}"
+  def Raxml.sendMessage(name,email,subject,message)
+    command = "#{RAILS_ROOT}/bioprogs/ruby/send_message.rb "
+    if !(name.nil? || name.eql?(""))
+      command = command+" -n #{name} "
+    end
+    if email=~/^\S+@\S+/
+      command = command+" -e #{email} "
+    end
+    if !(subject.nil? || subject.eql?(""))
+      command = command+" -s #{subject} "
+    end
+    command = command+" -m #{message} "
     puts command
     system command
     return true
