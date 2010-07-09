@@ -225,7 +225,7 @@ class RaxmlController < ApplicationController
     res  =  RaxmlResultsParser.new(rax.outfile)
     @files = res.files
     @names = res.names
-    @root  = "#{ENV['SERVER_ADDR']}:3000"
+    @root  = "#{ENV['SERVER_ADDR']}"
     @path = "/jobs/#{rax.jobid}/"
     if !(rax.errorfile.eql?(""))
       @files << rax.errorfile
