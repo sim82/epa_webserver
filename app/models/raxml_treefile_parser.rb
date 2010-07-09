@@ -1,6 +1,6 @@
 
 require 'pty'
-RAILS_ROOT = "/home/denis/work/RAxMLWS"
+#RAILS_ROOT = "/home/denis/work/RAxMLWS"
 
 class RaxmlTreefileParser
   
