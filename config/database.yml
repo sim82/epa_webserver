@@ -21,7 +21,7 @@ test:
 
 production:
   adapter: mysql
-  database: RAxMLWS_production
+  database: RAxMLWS_development
   username: denis
   password: denis
   host: localhost
