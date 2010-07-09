@@ -6,7 +6,9 @@
 
 # Specifies gem version of Rails to use when vendor/rails is not present
 RAILS_GEM_VERSION = '2.1.0' unless defined? RAILS_GEM_VERSION
-
+ENV['SERVER_IP'] = '131.159.28.62' unless defined? SERVER_IP 
+ENV['SERVER_ADDR'] = 'http://lxexelixis1.informatik.tu-muenchen.de' unless defined? SERVER_ADDR
+ENV['SERVER_NAME'] = 'lxexelixis1.informatik.tu-muenchen.de' unless defined? SERVER_NAME
 # Bootstrap the Rails environment, frameworks, and default configuration
 require File.join(File.dirname(__FILE__), 'boot')
 
@@ -64,10 +66,7 @@ Rails::Initializer.run do |config|
 
   # Activate observers that should always be running
   # config.active_record.observers = :cacher, :garbage_collector
+  
 
-  config.action_mailer.delivery_method = :smtp
-  ActionMailer::Base.server_settings = {
-    :address => "lxexelixis1.informatik.tu-muenchen.de",
-    :port => 25,
-  }
+
 end
