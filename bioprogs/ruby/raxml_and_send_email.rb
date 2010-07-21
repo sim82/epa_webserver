@@ -24,7 +24,6 @@ class RaxmlAndSendEmail
     if @use_queryfile
       buildAlignmentWithHMMER
     end
-    exit(0)
     run_raxml
     convertTreefileToPhyloXML
     if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
