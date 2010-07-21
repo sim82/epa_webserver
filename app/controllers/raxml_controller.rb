@@ -56,7 +56,8 @@ class RaxmlController < ApplicationController
     initialize_options
     
     @direcrory = nil
-    @ip = request.env['REMOTE_ADDR']
+#    @ip = request.env['REMOTE_ADDR']
+    @ip = request.env['HTTP_X_REAL_IP']
     @query = params[:query]
     @speed = params[:speed][:speed]
     @substmodel = ""
