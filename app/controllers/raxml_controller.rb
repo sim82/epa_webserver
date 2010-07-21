@@ -195,21 +195,21 @@ class RaxmlController < ApplicationController
       f = File.open(file,'r')
       fi = f.readlines
       if fi.size > 0
-        if file =~ /submit\.sh\.e/
+       # if file =~ /submit\.sh\.e/
           
           @raxml.update_attribute(:errorfile,file)
-          f.close
-          return true
-        else
-          fi.each do |line|
-            if line =~ /\s+ERROR[\s:]\s*/i
-              @raxml.update_attribute(:errorfile,file)
-              return true
-            elsif line =~ /^done!\s*$/
-              return true
-            end
+     #     f.close
+     #     return true
+     #   else
+        fi.each do |line|
+        #  if line =~ /\s+ERROR[\s:]\s*/i
+        #    @raxml.update_attribute(:errorfile,file)
+        #    return true
+          if line =~ /^done!\s*$/
+            return true
           end
         end
+     #   end
       end
       f.close
     }
