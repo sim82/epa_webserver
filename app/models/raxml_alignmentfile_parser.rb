@@ -76,7 +76,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
       
       stdin.each do  |line| 
         if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/)
-          @error = @error+line+"<br></br>Filename:"+file+"<br></br>"+cmd
+          @error = @error+line
           @format = "unk"
           @valid_format = false
         end
@@ -85,7 +85,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     if !@error.eql?("")
       @error = "#{@message}\n#{@error}"
     end
-    # system "rm #{file}"
+     system "rm #{file}"
   end
 end
 
