@@ -197,7 +197,7 @@ class RaxmlController < ApplicationController
       if fi.size > 0
        # if file =~ /submit\.sh\.e/
           
-          @raxml.update_attribute(:errorfile,file)
+     #     @raxml.update_attribute(:errorfile,file)
      #     f.close
      #     return true
      #   else
