@@ -121,7 +121,7 @@ class RaxmlController < ApplicationController
       @raxml.execude(link,@raxml.jobid.to_s)
 
       ## save userinfos
-      ip = request.env['REMOTE_ADDR']
+      ip = @ip
       if ip.eql?("") || ip.nil?
         ip = "xxx.xxx.xxx.xxx"
       end
