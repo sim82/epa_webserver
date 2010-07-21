@@ -177,7 +177,7 @@ class RaxmlController < ApplicationController
     @submission_counter = 0;
     getInfo
     @raxml = Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
-    @ip = @raxml.email
+    @ip = @raxml.user_ip
     @id = params[:id]
     if !(jobIsFinished?(@raxml.jobid))
       render :action => "wait"
