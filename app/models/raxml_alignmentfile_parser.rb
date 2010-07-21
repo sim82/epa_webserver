@@ -85,7 +85,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     if !@error.eql?("")
       @error = "#{@message}\n#{@error}"
     end
-    system "rm #{file}"
+    # system "rm #{file}"
   end
 end
 
