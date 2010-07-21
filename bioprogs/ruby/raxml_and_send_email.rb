@@ -120,7 +120,7 @@ class RaxmlAndSendEmail
   def run_raxml
     command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC "
     @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
-    system command 
+#    system command 
   end
 
   def convertTreefileToPhyloXML
