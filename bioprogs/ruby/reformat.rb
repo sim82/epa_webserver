@@ -52,7 +52,7 @@ attr_accessor :format
         @data = data
         i = 1
         while i < @data.size
-          puts @data[i]
+          #puts @data[i]
           if @data[i] =~ /^\S+\s+([A-Za-z\-\s]+)/
             real_seqs = real_seqs+1
             seqline = $1
