@@ -71,17 +71,17 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     @data.each {|d| f.write(d)}
     f.close
     cmd = "#{RAILS_ROOT}/bioprogs/raxml/raxmlHPC  -s #{file} -fc -m GTRGAMMA -n test"
-    # let RAxML check if phylip format is correct
-    #PTY.spawn(cmd) do |stdin, stdout, pid| 
+    #let RAxML check if phylip format is correct
+    PTY.spawn(cmd) do |stdin, stdout, pid| 
       
-    #  stdin.each do  |line| 
-    #    if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/)
-    #      @error = @error+line
-    #      @format = "unk"
-    #      @valid_format = false
-    #    end
-    #  end
-    #end rescue Errno::EIO
+      stdin.each do  |line| 
+        if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/)
+          @error = @error+line
+          @format = "unk"
+          @valid_format = false
+        end
+      end
+    end rescue Errno::EIO
     if !@error.eql?("")
       @error = "#{@message}\n#{@error}"
     end
