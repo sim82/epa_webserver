@@ -45,7 +45,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
         checkPhylipFormatWithRaxml
         break
 
-      elsif @data[i] =~ /^\d+\s\d+/  #phylip format?
+      elsif @data[i] =~ /\s+\d+\s+\d+/  #phylip format?
         @format = "phl"
         @valid_format = true
         checkPhylipFormatWithRaxml
