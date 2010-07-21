@@ -103,6 +103,7 @@ class RaxmlAndSendEmail
   end
 
   def buildAlignmentWithHMMER
+    puts (@raxml_options["-s"])
     ref = Reformat.new(@raxml_options["-s"])
     ref.reformatToStockholm
     ref.writeToFile(@jobpath+"alignment_file.sto")
