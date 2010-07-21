@@ -76,7 +76,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
       
       stdin.each do  |line| 
         if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/)
-          @error = @error+line
+          @error = @error+line+"<br></br>Filename:"+file
           @format = "unk"
           @valid_format = false
         end
