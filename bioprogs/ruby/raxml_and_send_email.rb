@@ -24,6 +24,7 @@ class RaxmlAndSendEmail
     if @use_queryfile
       buildAlignmentWithHMMER
     end
+    exit(0)
     run_raxml
     convertTreefileToPhyloXML
     if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
@@ -120,7 +121,7 @@ class RaxmlAndSendEmail
   def run_raxml
     command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC "
     @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
-#    system command 
+    system command 
   end
 
   def convertTreefileToPhyloXML
