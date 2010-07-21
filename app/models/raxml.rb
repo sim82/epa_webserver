@@ -123,6 +123,7 @@ class Raxml < ActiveRecord::Base
     opts.each_key {|k| command  = command+" "+k+" #{opts[k]} "}
     puts command
     File.open(shell_file,'wb'){|file| file.write(command)}
+    exit(0)
     system "qsub -o #{path} -e #{path} #{shell_file}"
 #    process = fork {system command}
 #    pid = process+1
