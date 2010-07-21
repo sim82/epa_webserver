@@ -11,7 +11,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     @format = "unk"
     @valid_format = false
     @error = ""
-    @message = "Invalid alignmentfile format!(Only Fasta and Phylip alignment formats are allowed)\n ParserError :: #{@filename}"
+    @message = "Invalid alignmentfile format!(Only Fasta and Phylip alignment formats are allowed)  ParserError :: #{@filename}<br></br>"
     check_format   
     @ali_length = 0
     if @valid_format
@@ -83,7 +83,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
       end
     end rescue Errno::EIO
     if !@error.eql?("")
-      @error = "#{@message}\n#{@error}"
+      @error = "#{@message}\n#{@error}<br></br>Collision Filename: #{file}"
     end
     system "rm #{file}"
   end
