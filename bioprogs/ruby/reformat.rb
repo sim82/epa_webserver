@@ -27,7 +27,7 @@ attr_accessor :format
         end
         @format = "fas"
 
-      elsif @data[i] =~ /^\s+(\d+)\s+(\d+)\s*$/ #Phylip format
+      elsif @data[i] =~ /^\s*(\d+)\s+(\d+)\s*$/ #Phylip format
         data = []
         data[0] = @data[i]
         start = i+1
@@ -40,7 +40,7 @@ attr_accessor :format
           if @data[i] =~ /^(\S+)\s+([A-Za-z\-\s]+)/
             data[j] = $1+" "+$2.gsub(/\s/,"")
             j = j+1
-          elsif @data[i] =~ /^\s+([A-Za-z\-\s]+)/
+          elsif @data[i] =~ /^\s*([A-Za-z\-\s]+)/
             data[j] = data[j]+@data[i].gsub(/\s/,"")   # convert to a unsplitted format 
             j = j+1
           end
@@ -97,7 +97,7 @@ attr_accessor :format
 
     if @format.eql?("phy")
       while i < @data.size
-        if @data[i] =~ /^\s+\d+\s+\d+\s*$/
+        if @data[i] =~ /^\s*\d+\s+\d+\s*$/
           @data[i] = "# STOCKHOLM 1.0"
           @format = "sto"
           break
