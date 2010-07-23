@@ -75,7 +75,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     PTY.spawn(cmd) do |stdin, stdout, pid| 
       
       stdin.each do  |line| 
-        if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/)
+        if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/) || !(line=~ /IMPORTANT\s+WARNING/)
           @error = @error+line
           @format = "unk"
           @valid_format = false
