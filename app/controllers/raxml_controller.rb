@@ -237,13 +237,13 @@ class RaxmlController < ApplicationController
 
   def collectCites(jobid)
     @cites << "<b>EPA:</b> <li> S.A. Berger, A. Stamatakis, Evolutionary Placement of Short Sequence Reads. <a href=\"http://arxiv.org/abs/0911.2852v1\" target=\"_blank\">arXiv:0911.2852v1</a> [q-bio.GN](2009)</li>"
-    @cites << "<b>Archaeopteryx Treeviewer:</b> <li>Han, Mira V.; Zmasek, Christian M. (2009). phyloXML: XML for evolutionary biology and comparative genomics. BMC Bioinformatics (United Kingdom: BioMed Central) 10: 356. doi:10.1186/1471-2105-10-356. http://www.biomedcentral.com/1471-2105/10/356.</li>"
-    @cites << "<li>Zmasek, Christian M.; Eddy, Sean R. (2001). ATV: display and manipulation of annotated phylogenetic trees. Bioinformatics (United Kingdom: Oxford Journals) 17 (4): 383–384. http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383.</li>"
+    @cites << "<b>Archaeopteryx Treeviewer:</b> <li>Han, Mira V.; Zmasek, Christian M. (2009). phyloXML: XML for evolutionary biology and comparative genomics. BMC Bioinformatics (United Kingdom: BioMed Central) 10: 356. doi:10.1186/1471-2105-10-356. <a href=\"http://www.biomedcentral.com/1471-2105/10/356\" target=\"_blank\">http://www.biomedcentral.com/1471-2105/10/356</a></li>"
+    @cites << "<li>Zmasek, Christian M.; Eddy, Sean R. (2001). ATV: display and manipulation of annotated phylogenetic trees. Bioinformatics (United Kingdom: Oxford Journals) 17 (4): 383–384. <a href=\"http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383\" target=\"_blank\">http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383</a></li>"
     @cites << "<b>Pplacer</b><li>Frederick A Matsen, Robin B Kodner and E Virginia Armbrust, pplacer: linear time maximum-likelihood and Bayesian phylogenetic placement of sequences onto a fixed reference tree. <a href=\"http://arxiv.org/abs/1003.5943v1\" target=\"_blank\">arXiv:1003.5943v1</a>  [q-bio.PE]</li>"
     rax =  Raxml.find(:first, :conditions => ["jobid = #{jobid}"])
     if rax.use_clustering.eql?("T")
       @cites << "<b>Hmmer:</b> <li>S. R. Eddy., A New Generation of Homology Search Tools Based on Probabilistic Inference. Genome Inform., 23:205-211, 2009.</li>"
-      @cites << "<b>uclust:</b> <li>http://www.drive5.com/uclust</li>"
+      @cites << "<b>uclust:</b> <li><a href=\"http://www.drive5.com/uclust\" target=\"_blank\">http://www.drive5.com/uclust</a></li>"
     end
 
   end    
