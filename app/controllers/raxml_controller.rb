@@ -236,10 +236,10 @@ class RaxmlController < ApplicationController
   end
 
   def collectCites(jobid)
-    @cites << "<b>EPA:</b> <li> S.A. Berger, A. Stamatakis, Evolutionary Placement of Short Sequence Reads. arXiv:0911.2852v1 [q-bio.GN](2009)</li>"
+    @cites << "<b>EPA:</b> <li> S.A. Berger, A. Stamatakis, Evolutionary Placement of Short Sequence Reads. <a href=\"http://arxiv.org/abs/0911.2852v1\">arXiv:0911.2852v1</a> [q-bio.GN](2009)</li>"
     @cites << "<b>Archaeopteryx Treeviewer:</b> <li>Han, Mira V.; Zmasek, Christian M. (2009). phyloXML: XML for evolutionary biology and comparative genomics. BMC Bioinformatics (United Kingdom: BioMed Central) 10: 356. doi:10.1186/1471-2105-10-356. http://www.biomedcentral.com/1471-2105/10/356.</li>"
     @cites << "<li>Zmasek, Christian M.; Eddy, Sean R. (2001). ATV: display and manipulation of annotated phylogenetic trees. Bioinformatics (United Kingdom: Oxford Journals) 17 (4): 383–384. http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383.</li>"
-   # @cites << "<li>Frederick A Matsen, Robin B Kodner and E Virginia Armbrust, pplacer: linear time maximum-likelihood and Bayesian phylogenetic placement of sequences onto a fixed reference tree. arXiv:1003.5943v1  [q-bio.PE]</li>"
+    @cites << "<li>Frederick A Matsen, Robin B Kodner and E Virginia Armbrust, pplacer: linear time maximum-likelihood and Bayesian phylogenetic placement of sequences onto a fixed reference tree. <a href=\"http://arxiv.org/abs/1003.5943v1\">arXiv:1003.5943v1</a>  [q-bio.PE]</li>"
     rax =  Raxml.find(:first, :conditions => ["jobid = #{jobid}"])
     if rax.use_clustering.eql?("T")
       @cites << "<b>Hmmer:</b> <li>S. R. Eddy., A New Generation of Homology Search Tools Based on Probabilistic Inference. Genome Inform., 23:205-211, 2009.</li>"
