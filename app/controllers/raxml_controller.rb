@@ -246,10 +246,15 @@ class RaxmlController < ApplicationController
       @cites << "<b>uclust:</b> <li><a href=\"http://www.drive5.com/uclust\" target=\"_blank\">http://www.drive5.com/uclust</a></li>"
     end
 
-  end    
+  end
+    
   def download 
     file = params[:file]
     send_file file
+  end
+
+  def treehelp
+    render :layout => false
   end
 
   def index

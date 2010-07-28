@@ -16,7 +16,7 @@
   </ul></p>
   
   <p><%= button_to "Submit new job" , :controller => 'raxml', :action => 'submit' %></p>
-  
+  <p><a href="/raxml/treehelp" onclick="window.open(this.href, '_blank', 'toolbar=no,location=no,directories=no,resizable=yes,scrollbars=yes, width=800, height=600'); return false;">Show Treeviewer Help</a></p>
   <p>
   <APPLET codebase="/applets/archaeopteryx" archive="archaeopteryx_applets.jar" code="org.forester.archaeopteryx.ArchaeopteryxE" width="1000" height="700">
     <param name="url_of_tree_to_load" value= '<%="#{@root}#{@path}treefile.phyloxml"%>' >

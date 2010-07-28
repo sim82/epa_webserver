@@ -1,0 +1,42 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+  <title>Treeviewer Help</title>
+  <%= stylesheet_link_tag 'help' %>
+  <body>
+    <h1>Archaeopteryx Treeviewer Help</h1>
+    <p>Here is a short overview about some features of the Archaeopteryx Treeviewer. For a more detailed description we refer on the developers page <a href="http://www.phylosoft.org/archaeopteryx/" onclick="window.open(this.href, '_blank', 'toolbar=yes,location=yes,directories=yes,resizable=yes,scrollbars=yes, width=800, height=600'); return false;">http://www.phylosoft.org/archaeopteryx</a>.</p>
+    <div id="treeviewer">
+      <h2>The Treeviewer</h2>
+      <div>
+        <img src="/images/treeviewer_help.png" width="800", height="540"/>
+      </div>
+      <div id="description">
+        <h3>1. Branch Coloring</h3>
+        <p>With this checkbox you can switch the coloring proposed by the phyloXML file on or off. The coloring is based on the mean value of the confidences off all placements on that branch. A brighter green means very high mean confidence on that branch. A bright red means the opposite.</p>
+        <h3>2. Branch Width</h3>
+        <p>With this checkbox you can switch the branch width on or off. The branch width is based on the mean confidence and the amount of placements on the branch in proportion to the other branches with placements.</p>
+        <h3>3. Tree Interaction Options</h3>
+        <p>
+          In this drop down menu you can switch between actions that are performed when you click on a node in the visualized tree.
+        <ul>
+          <li>Display Node Data</li>
+          <li>Collapse/Uncollapse</li>
+          <li>Root/Reroot</li>
+          <li>Sub/Super Tree</li>
+          <li>Swap Descendants</li>
+          <li>Colorize subtree</li>
+          <li>Delete Subtree/Node</li>
+        </ul>
+        </p>
+        <h3>4. Tree Visualization Types</h3>
+        <p>In this drop down menu you can select different visualization types for the tree (e.g switch to an circular representation).</p>
+        <h3>5. Branch Data View</h3>
+        <p>If you scroll over a branch some branch data is displayed. On the left, the query read name is shown and on the right its confidence. The confidence is calculated based on the scoring proposed by Pplacer which accounts for the spreading of a query read throughout the tree and the weights (in this case the RAxML likelihood weights or the bootstrap support) from each of these placements</p>
+      </div>
+    </div>
+    
+
+  </body>
+</html>
