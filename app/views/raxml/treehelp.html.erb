@@ -6,7 +6,8 @@
   <%= stylesheet_link_tag 'help' %>
   <body>
     <h1>Archaeopteryx Treeviewer Help</h1>
-    <p>Here is a short overview about some features of the Archaeopteryx Treeviewer. For a more detailed description we refer on the developers page <a href="http://www.phylosoft.org/archaeopteryx/" onclick="window.open(this.href, '_blank', 'toolbar=yes,location=yes,directories=yes,resizable=yes,scrollbars=yes, width=800, height=600'); return false;">http://www.phylosoft.org/archaeopteryx</a>.</p>
+    <p>We provide a brief overview of some relevant Archaeopteryx Treeviewer features below.
+For a more detailed description, please refer to the Archaeopteryx project web-site <a href="http://www.phylosoft.org/archaeopteryx/" onclick="window.open(this.href, '_blank', 'toolbar=yes,location=yes,directories=yes,resizable=yes,scrollbars=yes, width=800, height=600'); return false;">http://www.phylosoft.org/archaeopteryx</a>.</p>
     <div id="treeviewer">
       <h2>The Treeviewer</h2>
       <div>
@@ -14,10 +15,10 @@
       </div>
       <div id="description">
         <h3>1. Branch Coloring</h3>
-        <p>With this checkbox you can switch the coloring proposed by the phyloXML file on or off. The coloring is based on the mean value of the confidences off all placements on that branch. A brighter green means very high mean confidence on that branch. A bright red means the opposite.</p>
+        <p>Assign colors to branches, based on diversity measure. The coloring is based on the mean value of the confidences off all placements on that branch. The onfidences are based on the diversity measure used by Pplacer. A brighter green means very high mean confidence on that branch. A bright red means the opposite.</p>
         <h3>2. Branch Width</h3>
-        <p>With this checkbox you can switch the branch width on or off. The branch width is based on the mean confidence and the amount of placements on the branch in proportion to the other branches with placements.</p>
-        <h3>3. Tree Interaction Options</h3>
+        <p>Display the fraction of reads that have been placed into a branch by means of a relative branch width.</p>
+        <h3>3. Tree Manipulation Options</h3>
         <p>
           In this drop down menu you can switch between actions that are performed when you click on a node in the visualized tree.
         <ul>
@@ -31,9 +32,9 @@
         </ul>
         </p>
         <h3>4. Tree Visualization Types</h3>
-        <p>In this drop down menu you can select different visualization types for the tree (e.g switch to an circular representation).</p>
+        <p>Select your preferred tree layout in this drop down menu(e.g switch to a circular or an unrooted representation of the tree).</p>
         <h3>5. Branch Data View</h3>
-        <p>If you scroll over a branch some branch data is displayed. On the left, the query read name is shown and on the right its confidence. The confidence is calculated based on the scoring proposed by Pplacer which accounts for the spreading of a query read throughout the tree and the weights (in this case the RAxML likelihood weights or the bootstrap support) from each of these placements</p>
+        <p>If you move your mouse over a branch some branch data is displayed. On the left, the query read name is shown and on the right its confidence. The confidence is calculated based on the scoring proposed by Pplacer which accounts for the spreading of a query read throughout the tree and the weights (in this case the RAxML likelihood weights or the bootstrap support) from each of these placements</p>
       </div>
     </div>
     
