@@ -122,8 +122,8 @@ class Raxml < ActiveRecord::Base
     command = "#{RAILS_ROOT}/bioprogs/ruby/raxml_and_send_email.rb"
     opts.each_key {|k| command  = command+" "+k+" #{opts[k]} "}
     puts command
-    File.open(shell_file,'wb'){|file| file.write(command)}
-    system "qsub -o #{path} -e #{path} #{shell_file}"
+    File.open(shell_file,'wb'){|file| file.write(command+";echo done!")}
+    system "qsub -o #{path} -j y #{shell_file} "
 #    process = fork {system command}
 #    pid = process+1
 #    self.update_attribute(:pid,pid)

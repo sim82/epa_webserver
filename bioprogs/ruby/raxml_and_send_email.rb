@@ -103,6 +103,7 @@ class RaxmlAndSendEmail
   end
 
   def buildAlignmentWithHMMER
+    puts (@raxml_options["-s"])
     ref = Reformat.new(@raxml_options["-s"])
     ref.reformatToStockholm
     ref.writeToFile(@jobpath+"alignment_file.sto")
@@ -118,7 +119,7 @@ class RaxmlAndSendEmail
   end
 
   def run_raxml
-    command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC "
+    command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC-SSE3 "
     @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
     system command 
   end

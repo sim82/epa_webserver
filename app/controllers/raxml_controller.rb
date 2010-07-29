@@ -56,7 +56,8 @@ class RaxmlController < ApplicationController
     initialize_options
     
     @direcrory = nil
-    @ip = request.env['REMOTE_ADDR']
+#    @ip = request.env['REMOTE_ADDR']
+    @ip = request.remote_ip
     @query = params[:query]
     @speed = params[:speed][:speed]
     @substmodel = ""
@@ -120,7 +121,7 @@ class RaxmlController < ApplicationController
       @raxml.execude(link,@raxml.jobid.to_s)
 
       ## save userinfos
-      ip = request.env['REMOTE_ADDR']
+      ip = @ip
       if ip.eql?("") || ip.nil?
         ip = "xxx.xxx.xxx.xxx"
       end
@@ -177,6 +178,7 @@ class RaxmlController < ApplicationController
     @submission_counter = 0;
     getInfo
     @raxml = Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
+    @ip = @raxml.user_ip
     @id = params[:id]
     if !(jobIsFinished?(@raxml.jobid))
       render :action => "wait"
@@ -193,21 +195,21 @@ class RaxmlController < ApplicationController
       f = File.open(file,'r')
       fi = f.readlines
       if fi.size > 0
-        if file =~ /submit\.sh\.e/
+       # if file =~ /submit\.sh\.e/
           
-          @raxml.update_attribute(:errorfile,file)
-          f.close
-          return true
-        else
-          fi.each do |line|
-            if line =~ /\s+ERROR[\s:]\s*/i
-              @raxml.update_attribute(:errorfile,file)
-              return true
-            elsif line =~ /^done!\s*$/
-              return true
-            end
+     #     @raxml.update_attribute(:errorfile,file)
+     #     f.close
+     #     return true
+     #   else
+        fi.each do |line|
+        #  if line =~ /\s+ERROR[\s:]\s*/i
+        #    @raxml.update_attribute(:errorfile,file)
+        #    return true
+          if line =~ /^done!\s*$/
+            return true
           end
         end
+     #   end
       end
       f.close
     }
@@ -234,19 +236,25 @@ class RaxmlController < ApplicationController
   end
 
   def collectCites(jobid)
-    @cites << "<b>EPA:</b> <li> S.A. Berger, A. Stamatakis, Evolutionary Placement of Short Sequence Reads. arXiv:0911.2852v1 [q-bio.GN](2009)</li>"
-    @cites << "<b>Archaeopteryx Treeviewer:</b> <li>Han, Mira V.; Zmasek, Christian M. (2009). phyloXML: XML for evolutionary biology and comparative genomics. BMC Bioinformatics (United Kingdom: BioMed Central) 10: 356. doi:10.1186/1471-2105-10-356. http://www.biomedcentral.com/1471-2105/10/356.</li>"
-    @cites << "<li>Zmasek, Christian M.; Eddy, Sean R. (2001). ATV: display and manipulation of annotated phylogenetic trees. Bioinformatics (United Kingdom: Oxford Journals) 17 (4): 383–384. http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383.</li>"
+    @cites << "<b>EPA:</b> <li> S.A. Berger, A. Stamatakis, Evolutionary Placement of Short Sequence Reads. <a href=\"http://arxiv.org/abs/0911.2852v1\" target=\"_blank\">arXiv:0911.2852v1</a> [q-bio.GN](2009)</li>"
+    @cites << "<b>Archaeopteryx Treeviewer:</b> <li>Han, Mira V.; Zmasek, Christian M. (2009). phyloXML: XML for evolutionary biology and comparative genomics. BMC Bioinformatics (United Kingdom: BioMed Central) 10: 356. doi:10.1186/1471-2105-10-356. <a href=\"http://www.biomedcentral.com/1471-2105/10/356\" target=\"_blank\">http://www.biomedcentral.com/1471-2105/10/356</a></li>"
+    @cites << "<li>Zmasek, Christian M.; Eddy, Sean R. (2001). ATV: display and manipulation of annotated phylogenetic trees. Bioinformatics (United Kingdom: Oxford Journals) 17 (4): 383–384. <a href=\"http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383\" target=\"_blank\">http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383</a></li>"
+    @cites << "<b>Pplacer:</b><li>Frederick A Matsen, Robin B Kodner and E Virginia Armbrust, pplacer: linear time maximum-likelihood and Bayesian phylogenetic placement of sequences onto a fixed reference tree. <a href=\"http://arxiv.org/abs/1003.5943v1\" target=\"_blank\">arXiv:1003.5943v1</a>  [q-bio.PE]</li>"
     rax =  Raxml.find(:first, :conditions => ["jobid = #{jobid}"])
     if rax.use_clustering.eql?("T")
       @cites << "<b>Hmmer:</b> <li>S. R. Eddy., A New Generation of Homology Search Tools Based on Probabilistic Inference. Genome Inform., 23:205-211, 2009.</li>"
-      @cites << "<b>uclust:</b> <li>http://www.drive5.com/uclust</li>"
+      @cites << "<b>uclust:</b> <li><a href=\"http://www.drive5.com/uclust\" target=\"_blank\">http://www.drive5.com/uclust</a></li>"
     end
 
-  end    
+  end
+    
   def download 
     file = params[:file]
     send_file file
+  end
+
+  def treehelp
+    render :layout => false
   end
 
   def index
