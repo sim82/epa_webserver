@@ -14,20 +14,25 @@ class RaxmlAndSendEmail
     @queryfile = ""
     @use_queryfile = false
     @use_clustering = false
+    @multi_gene_alignment = false
     @link = ""
     @id = ""
     options_parser!(opts)
     @jobpath = "#{RAILS_ROOT}/public/jobs/#{@id}/"
-    if @use_clustering
-      useUClust
-    end
-    if @use_queryfile
-      buildAlignmentWithHMMER
-    end
-    run_raxml
-    convertTreefileToPhyloXML
-    if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
-      send_email
+    if @multi_gene_alignment
+  #    multiGeneAlignment
+    else
+      if @use_clustering
+        useUClust
+      end
+      if @use_queryfile
+        buildAlignmentWithHMMER
+      end
+      run_raxml
+      convertTreefileToPhyloXML
+      if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
+        send_email
+      end
     end
     puts "done!"
   end
@@ -82,6 +87,9 @@ class RaxmlAndSendEmail
       elsif opts[i].eql?("-useCl")
         @use_clustering = true
         i = i+1
+      elsif opts[i].eql?("-mga")
+        @multi_gen_alignment = true
+        i = i+1
       else
         raise "ERROR in options_parser!, unknown option #{opts[i]}!"
       end
@@ -89,6 +97,16 @@ class RaxmlAndSendEmail
     end
   end
 
+#  def multiGeneAlignment
+#    
+#    # split the multi gene file based on the partition file
+#    command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC-SSE3 -fs "
+#    @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
+#    system command #
+#
+#    
+#  end
+  
   def useUClust
     outfile = @jobpath+"cluster"
     command = "#{RAILS_ROOT}/bioprogs/uclust/uclust32 --input #{@queryfile}  --uc #{outfile}.uc --id 0.90 --usersort 2>&1"
@@ -129,13 +147,13 @@ class RaxmlAndSendEmail
     command = "cd #{RAILS_ROOT}/bioprogs/java; java -jar convertToPhyloXML.jar #{@jobpath}RAxML_originalLabelledTree.#{@id}"
     if @raxml_options["-x"].nil? # bootstrapping activated?
       file = @jobpath+"RAxML_classificationLikelihoodWeights."+@id
-      command = "#{command} #{file} #{@raxml_options["-N"]} > #{@jobpath}treefile.phyloxml"
+      command = "#{command} #{file}  > #{@jobpath}treefile.phyloxml"
       puts command
       system command
       return
     else
       file  = @jobpath+"RAxML_classification."+@id
-      command = "#{command} #{file} > #{@jobpath}treefile.phyloxml"
+      command = "#{command} #{file} #{@raxml_options["-N"]}> #{@jobpath}treefile.phyloxml"
       puts command
       system command
       return
