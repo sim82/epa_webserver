@@ -3,9 +3,12 @@ require 'raxml_treefile_parser'
 require 'raxml_partitionfile_parser'
 require 'raxml_queryfile_parser'
 
+#### The main RAxML Objekt that contains the main Job submission informations and validates the input files and parameters
 
 class Raxml < ActiveRecord::Base
 
+
+  ### Standard validator functions
   validates_presence_of :alifile, :treefile
   validates_format_of :email, :with => /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i , :on => :save, :message => "Invalid address", :allow_blank => true
   validates_numericality_of :b_random_seed,  :only_integer => true, :greater_than => 0,  :message => "Input must be an integer and greater than 0 and less than 101"
@@ -13,15 +16,8 @@ class Raxml < ActiveRecord::Base
   
   validates_presence_of :parfile, :if => :par_selected?
   validates_presence_of :queryfile, :if => :queryfile_selected?
- # validates_each :heuristic  do |record, attr, value|
- #   if (value =~ /^\w+\_([\d+])$/ || value =~ /^\w+\_([\d+]\.{0,1}\d+)$/ )
- #     record.errors.add attr, 'value has to be between 0 and 1' if ($1.to_f > 1.0 || $1.to_f < 0.0)
- #   elsif value =~ /^\w+\_.+$/
- #     record.errors.add attr, 'value is not numeric'
- #   elsif !(value =~ /^none$/) && value =~ /\w+\_$/ 
- #    record.errors.add attr, 'value can\'t be blank when heuristic procedure is selected'
- #   end
- # end
+
+  ## checks if the Partition file option has been checked 
   def par_selected?
     if self.query.eql?("PAR")
       return true
@@ -30,6 +26,7 @@ class Raxml < ActiveRecord::Base
     end
   end
 
+  ## checks if the "Upload ualigned query reads" otption has been checked 
   def queryfile_selected?
     if self.use_queryfile.eql?("T")
       return true
@@ -38,6 +35,7 @@ class Raxml < ActiveRecord::Base
     end
   end
 
+  ## custom validator function that checks the file formats of the uploaded Alignemntfile , Treefile, Partitionfile and the Sequencefile with the unaligned reads.
   def validate
     jobdir = "#{RAILS_ROOT}/public/jobs/#{self.jobid}/"
     if !(self.alifile.eql?("")) && !(self.treefile.eql?(""))
@@ -78,14 +76,15 @@ class Raxml < ActiveRecord::Base
     end
   end
 
-    def saveOnDisk(data,path)
-      File.open(path,'wb'){|f| f.write(data.join)}
-    end
+  ## Saves the Input files on the job directory on disk 
+  def saveOnDisk(data,path)
+    File.open(path,'wb'){|f| f.write(data.join)}
+  end
 
+  ## collects the options for "raxml_and_send_email.rb" including the options for all following processing steps (RAxML, Uclust,Hmmer) and builds a shell file that is submited in the Batch system. 
   def execude(link,id)
-    #RAxML command with parameters
-    
-    opts = {"-s" => self.alifile, "-n" => self.outfile, "-m" => self.substmodel,  "-f" => self.speed  , "-link" => link, "-id" => id}
+        
+    opts = {"-s" => self.alifile, "-n" => self.outfile, "-m" => self.substmodel,  "-f" => self.speed  , "-link" => link, "-id" => id}  # id contains the job id 
     if emailValid?
       opts["-email"] = self.email
     end
@@ -115,20 +114,20 @@ class Raxml < ActiveRecord::Base
     if self.use_clustering.eql?("T")
       opts["-useCl"] = self.use_clustering
     end
-
-
+    
+    # Build shell file  
     path = "#{RAILS_ROOT}/public/jobs/#{id}"
     shell_file = "#{RAILS_ROOT}/public/jobs/#{id}/submit.sh"
     command = "#{RAILS_ROOT}/bioprogs/ruby/raxml_and_send_email.rb"
     opts.each_key {|k| command  = command+" "+k+" #{opts[k]} "}
     puts command
     File.open(shell_file,'wb'){|file| file.write(command+";echo done!")}
+
+    # submit shellfile into batch system 
     system "qsub -o #{path} -j y #{shell_file} "
-#    process = fork {system command}
-#    pid = process+1
-#    self.update_attribute(:pid,pid)
   end
 
+  ## checks email format
   def emailValid?
     if self.email =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
       return true
@@ -137,7 +136,8 @@ class Raxml < ActiveRecord::Base
     end      
   end
 
-  def Raxml.sendMessage(name,email,subject,message)
+  ## Sends the message entered via the contact formular on the webpage to the administrators (Alexi,Simon,Denis)
+  def Raxml.sendMessage(name,email,subject,message)  
     command = "#{RAILS_ROOT}/bioprogs/ruby/send_message.rb "
     if !(name.nil? || name.eql?(""))
       command = command+" -n #{name} "
@@ -150,7 +150,7 @@ class Raxml < ActiveRecord::Base
     end
     command = command+" -m #{message} "
     puts command
-    system command
+    system command # if more traffic on the server is occuring (at this moment, the server can handle three parallel requests)  this should be submitted to the batch system
     return true
   end
 

@@ -760,7 +760,8 @@ static int SHSupport(int nPos, int nBootstrap, int *col, double loglk[3], double
     support = 0.0,
     delta1 = loglk[0] - loglk[1],
     delta2 = loglk[0] - loglk[2],
-    delta = delta1 < delta2 ? delta1 : delta2;
+    delta = delta1 < delta2 ? delta1 : delta2,
+    diff;
   
   int
     iBest,
@@ -768,11 +769,45 @@ static int SHSupport(int nPos, int nBootstrap, int *col, double loglk[3], double
     j,
     nSupport = 0,
     iBoot;
+
+  boolean
+    shittySplit = FALSE;
+
   
-  assert(loglk[0] >= loglk[1] && loglk[0] >= loglk[2]);
+  if(loglk[1] >= loglk[0])
+    {
+      diff = ABS(loglk[1] - loglk[0]);
+      /*printf("%1.80f %1.80f\n", loglk[0], loglk[1]);*/
+      shittySplit = TRUE;
+      assert(diff < 0.1);
+    }
 
-  /*printf("%f %f %f\n", loglk[0], loglk[1], loglk[2]);*/
+  if(loglk[2] >= loglk[0])
+    {
+      diff = ABS(loglk[2] - loglk[0]);
+      /*printf("%1.80f %1.80f\n", loglk[0], loglk[2]);*/
+      shittySplit = TRUE;
+      assert(diff < 0.1);
+    }
 
+  if(loglk[0] > loglk[2] && loglk[0] > loglk[1])
+    {
+      if(loglk[2] > loglk[1])
+	diff = ABS(loglk[2] - loglk[0]);
+      else
+	diff = ABS(loglk[1] - loglk[0]);
+      if(diff < 0.1)
+	shittySplit = TRUE;
+    }
+      
+  if(shittySplit)
+    return 0;
+
+  /*
+    printf("%f %f %f\n", loglk[0], loglk[1], loglk[2]);
+    assert(loglk[0] >= loglk[1] && loglk[0] >= loglk[2]);
+  */
+ 
   for(iBoot = 0; iBoot < nBootstrap; iBoot++) 
     {
       double resampled[3];
@@ -836,263 +871,282 @@ static void setupBranchInfo(nodeptr p, tree *tr, int *counter)
     }
 }
 
-static void doNNIs(tree *tr, nodeptr p, double *lhVectors[3], boolean shSupport, int *interchanges, boolean brOpt)
-{  
-  if(isTip(p->number, tr->mxtips))
-    return;
 
-  {
-    nodeptr q = p->back;
 
-    assert(!isTip(p->number, tr->mxtips));
 
-    if(!isTip(p->number, tr->mxtips) && !isTip(q->number, tr->mxtips))
-      {	
-	int 
-	  whichNNI;
-	       
-	double 		 
-	  lh[3],	 
-	  pqz_0[NUM_BRANCHES],
-	  pz1_0[NUM_BRANCHES],
-	  pz2_0[NUM_BRANCHES],
-	  qz1_0[NUM_BRANCHES],
-	  qz2_0[NUM_BRANCHES],
-	  pqz_1[NUM_BRANCHES],
-	  pz1_1[NUM_BRANCHES],
-	  pz2_1[NUM_BRANCHES],
-	  qz1_1[NUM_BRANCHES],
-	  qz2_1[NUM_BRANCHES],
-	  pqz_2[NUM_BRANCHES],
-	  pz1_2[NUM_BRANCHES],
-	  pz2_2[NUM_BRANCHES],
-	  qz1_2[NUM_BRANCHES],
-	  qz2_2[NUM_BRANCHES];
+static void doNNIs(tree *tr, nodeptr p, double *lhVectors[3], boolean shSupport, int *interchanges, int *innerBranches,
+		   double *pqz_0, double *pz1_0, double *pz2_0, double *qz1_0, double *qz2_0, double *pqz_1, double *pz1_1, double *pz2_1,
+		   double *qz1_1, double *qz2_1, double *pqz_2, double *pz1_2, double *pz2_2, double *qz1_2, double *qz2_2)
+{     
+  nodeptr 
+    q = p->back,     
+    pb1 = p->next->back,
+    pb2 = p->next->next->back;
 
-	nodeptr
-	  pb1 = p->next->back,
-	  pb2 = p->next->next->back,
-	  qb1 = q->next->back,
-	  qb2 = q->next->next->back;
+  assert(!isTip(p->number, tr->mxtips));     
+  
+  if(!isTip(q->number, tr->mxtips))
+    {	
+      int 
+	whichNNI = 0;
+      
+      nodeptr	 
+	qb1 = q->next->back,
+	qb2 = q->next->next->back;  
+      
+      double 		 
+	lh[3];         
+
+      *innerBranches = *innerBranches + 1;
+          
+      nniSmooth(tr, p, 16);	
+      
+      if(shSupport)
+	{	   
+	  evaluateGenericVector(tr, p);
+	  memcpy(lhVectors[0], tr->perSiteLL, sizeof(double) * tr->cdta->endsite);
+	}
+      else
+	evaluateGeneric(tr, p);
+      
+      lh[0] = tr->likelihood;
+            
+      storeBranches(tr, p, pqz_0, pz1_0, pz2_0, qz1_0, qz2_0);
+                
+      /*******************************************/
+      
+      hookup(p, q, pqz_0, tr->numBranches); 
+      
+      hookup(p->next,       qb1, qz1_0, tr->numBranches); 
+      hookup(p->next->next, pb2, pz2_0, tr->numBranches); 
+      
+      hookup(q->next,       pb1, pz1_0, tr->numBranches); 	
+      hookup(q->next->next, qb2, qz2_0, tr->numBranches); 
+      
+      newviewGeneric(tr, p);
+      newviewGeneric(tr, p->back);
+            
+      nniSmooth(tr, p, 16);
+      
+      if(shSupport)
+	{
+	  evaluateGenericVector(tr, p);
+	  memcpy(lhVectors[1], tr->perSiteLL, sizeof(double) * tr->cdta->endsite);
+	}
+      else
+	evaluateGeneric(tr, p);
+      
+      lh[1] = tr->likelihood;		
+      
+      storeBranches(tr, p, pqz_1, pz1_1, pz2_1, qz1_1, qz2_1);
+      
+      if(lh[1] > lh[0])
+	whichNNI = 1;
+      
+      /*******************************************/
+      
+      hookup(p, q, pqz_0, tr->numBranches); 
+      
+      hookup(p->next,       qb1, qz1_0, tr->numBranches); 
+      hookup(p->next->next, pb1, pz1_0, tr->numBranches); 
 	
-	if(brOpt)
-	  nniSmooth(tr, p, 16);	
-
-	if(shSupport)
-	  {	   
-	    evaluateGenericVector(tr, p);
-	    memcpy(lhVectors[0], tr->perSiteLL, sizeof(double) * tr->cdta->endsite);
-	  }
-	else
-	  evaluateGeneric(tr, p);
-	
-	
-
-	lh[0] =tr->likelihood;
-	
-	storeBranches(tr, p, pqz_0, pz1_0, pz2_0, qz1_0, qz2_0);
-	
-
-	
+      hookup(q->next,       pb2, pz2_0, tr->numBranches); 		
+      hookup(q->next->next, qb2, qz2_0, tr->numBranches); 
+      
+      newviewGeneric(tr, p);
+      newviewGeneric(tr, p->back);
+           
+      nniSmooth(tr, p, 16);
+      
+      if(shSupport)
+	{
+	  evaluateGenericVector(tr, p);
+	  memcpy(lhVectors[2], tr->perSiteLL, sizeof(double) * tr->cdta->endsite);
+	}
+      else
+	evaluateGeneric(tr, p);
+      
+      lh[2] = tr->likelihood;            
+      
+      storeBranches(tr, p, pqz_2, pz1_2, pz2_2, qz1_2, qz2_2);	 
+      
+      if(lh[2] > lh[0] && lh[2] > lh[1])
+	whichNNI = 2;
+      
+      /*******************************************/
+      
+      if(shSupport)
 	whichNNI = 0;
 
-	/*******************************************/
+      switch(whichNNI)
+	{
+	case 0:	 
+	  hookup(p, q, pqz_0, tr->numBranches); 	  
+	  
+	  hookup(p->next,       pb1, pz1_0, tr->numBranches); 
+	  hookup(p->next->next, pb2, pz2_0, tr->numBranches); 
+	  
+	  hookup(q->next,       qb1, qz1_0, tr->numBranches); 	
+	  hookup(q->next->next, qb2, qz2_0, tr->numBranches);
+	  break;
+	case 1:	 
+	  hookup(p, q, pqz_1, tr->numBranches); 	    
+	  
+	  hookup(p->next,       qb1, pz1_1, tr->numBranches); 
+	  hookup(p->next->next, pb2, pz2_1, tr->numBranches); 
+	  
+	  hookup(q->next,       pb1, qz1_1, tr->numBranches); 	
+	  hookup(q->next->next, qb2, qz2_1, tr->numBranches); 
+	  break;
+	case 2:	  
+	  hookup(p, q, pqz_2, tr->numBranches); 
+	  
+	  hookup(p->next,       qb1, pz1_2, tr->numBranches); 
+	  hookup(p->next->next, pb1, pz2_2, tr->numBranches); 
+	  
+	  hookup(q->next,       pb2, qz1_2, tr->numBranches); 		
+	  hookup(q->next->next, qb2, qz2_2, tr->numBranches); 
+	  break;
+	default:
+	  assert(0);
+	}       
+      
+      newviewGeneric(tr, p);
+      newviewGeneric(tr, q);     
+                 
+      if(whichNNI > 0)
+	*interchanges = *interchanges + 1;
+      
+      if(shSupport)	  
+	p->bInf->support = SHSupport(tr->cdta->endsite, 1000, tr->resample, lh, lhVectors);	   
+    }	  
 
-	hookup(p, q, pqz_0, tr->numBranches); 
+  
+  if(!isTip(pb1->number, tr->mxtips))
+    doNNIs(tr, pb1, lhVectors, shSupport, interchanges, innerBranches,
+	   pqz_0, pz1_0, pz2_0, qz1_0, qz2_0, pqz_1, pz1_1, pz2_1,
+	   qz1_1, qz2_1, pqz_2, pz1_2, pz2_2, qz1_2, qz2_2);
 
-	hookup(p->next,       qb1, qz1_0, tr->numBranches); 
-	hookup(p->next->next, pb2, pz2_0, tr->numBranches); 
+  if(!isTip(pb2->number, tr->mxtips))
+    doNNIs(tr, pb2, lhVectors, shSupport, interchanges,  innerBranches,
+	   pqz_0, pz1_0, pz2_0, qz1_0, qz2_0, pqz_1, pz1_1, pz2_1,
+	   qz1_1, qz2_1, pqz_2, pz1_2, pz2_2, qz1_2, qz2_2);   	         
+  
 
-	hookup(q->next,       pb1, pz1_0, tr->numBranches); 	
-	hookup(q->next->next, qb2, qz2_0, tr->numBranches); 
-
-	newviewGeneric(tr, p);
-	newviewGeneric(tr, p->back);
-	
-	if(brOpt)
-	  nniSmooth(tr, p, 16);
-     
-	if(shSupport)
-	  {
-	    evaluateGenericVector(tr, p);
-	    memcpy(lhVectors[1], tr->perSiteLL, sizeof(double) * tr->cdta->endsite);
-	  }
-	else
-	  evaluateGeneric(tr, p);
-	
-	lh[1] = tr->likelihood;		
-	
-	storeBranches(tr, p, pqz_1, pz1_1, pz2_1, qz1_1, qz2_1);
-
-	if(lh[1] > lh[0])
-	  whichNNI = 1;
-	
-	/*******************************************/
-
-	hookup(p, q, pqz_0, tr->numBranches); 
-
-	hookup(p->next,       qb1, qz1_0, tr->numBranches); 
-	hookup(p->next->next, pb1, pz1_0, tr->numBranches); 
-
-	hookup(q->next,       pb2, pz2_0, tr->numBranches); 		
-	hookup(q->next->next, qb2, qz2_0, tr->numBranches); 
-	
-	newviewGeneric(tr, p);
-	newviewGeneric(tr, p->back);
-
-	if(brOpt)
-	  nniSmooth(tr, p, 16);
-	
-	if(shSupport)
-	  {
-	    evaluateGenericVector(tr, p);
-	    memcpy(lhVectors[2], tr->perSiteLL, sizeof(double) * tr->cdta->endsite);
-	  }
-	else
-	  evaluateGeneric(tr, p);
-	
-	lh[2] =tr->likelihood;
-
-	storeBranches(tr, p, pqz_2, pz1_2, pz2_2, qz1_2, qz2_2);	 
-	     
-	if(lh[2] > lh[0] && lh[2] > lh[1])
-	  whichNNI = 2;
-
-	/*******************************************/
-
-	/*printf("%f %f %f NNI: %d\n", lh[0], lh[1], lh[2], whichNNI);*/
-
-	switch(whichNNI)
-	  {
-	  case 0:
-	    hookup(p, q, pqz_0, tr->numBranches); 	  
-	    
-	    hookup(p->next,       pb1, pz1_0, tr->numBranches); 
-	    hookup(p->next->next, pb2, pz2_0, tr->numBranches); 
-	    
-	    hookup(q->next,       qb1, qz1_0, tr->numBranches); 	
-	    hookup(q->next->next, qb2, qz2_0, tr->numBranches);
-	    break;
-	  case 1:
-	    hookup(p, q, pqz_1, tr->numBranches); 	    
-	    
-	    hookup(p->next,       qb1, pz1_1, tr->numBranches); 
-	    hookup(p->next->next, pb2, pz2_1, tr->numBranches); 
-	    
-	    hookup(q->next,       pb1, qz1_1, tr->numBranches); 	
-	    hookup(q->next->next, qb2, qz2_1, tr->numBranches); 
-	    break;
-	  case 2:	   
-	    hookup(p, q, pqz_2, tr->numBranches); 
-	    
-	    hookup(p->next,       qb1, pz1_2, tr->numBranches); 
-	    hookup(p->next->next, pb1, pz2_2, tr->numBranches); 
-	    
-	    hookup(q->next,       pb2, qz1_2, tr->numBranches); 		
-	    hookup(q->next->next, qb2, qz2_2, tr->numBranches); 
-	    break;
-	  default:
-	    assert(0);
-	  }       
-
-	newviewGeneric(tr, p);
-	newviewGeneric(tr, p->back);
-	evaluateGeneric(tr, p);
-
-	if(whichNNI > 0)
-	  *interchanges = *interchanges + 1;
-
-	/*
-	  if(whichNNI > 0)
-	  printf("PAPA %f\n", tr->likelihood);
-	else
-	printf("Branch %f \n", tr->likelihood);
-	*/
-	
-	if(shSupport)
-	  {
-	    int support = SHSupport(tr->cdta->endsite, 1000, tr->resample, lh, lhVectors);
-	    p->bInf->support = support;
-	    /*printf("support: %d\n", support);*/
-	  }
-
-	
-	doNNIs(tr, pb1, lhVectors, shSupport, interchanges, brOpt);		
-	doNNIs(tr, pb2, lhVectors, shSupport, interchanges, brOpt);     	
-      }
-    else
-      {   	
-	doNNIs(tr, p->next->back, lhVectors, shSupport, interchanges, brOpt);		
-	doNNIs(tr, p->next->next->back, lhVectors, shSupport, interchanges, brOpt);     		
-      }
-  }
+  return;
 }
 
-static int *PermutationSH(tree *tr, int nBootstrap) 
+
+static int encapsulateNNIs(tree *tr, double *lhVectors[3], boolean shSupport)
 {
   int 
-    *buffer,
-    *col = (int*)calloc(tr->cdta->endsite * nBootstrap, sizeof(int)),    
-    *nonzero = (int*)calloc(tr->NumberOfModels, sizeof(int)),
-    maxNonZero = 0,
+    innerBranches = 0,
+    interchanges  = 0;
+
+  double
+    pqz_0[NUM_BRANCHES],
+    pz1_0[NUM_BRANCHES],
+    pz2_0[NUM_BRANCHES],
+    qz1_0[NUM_BRANCHES],
+    qz2_0[NUM_BRANCHES],
+    pqz_1[NUM_BRANCHES],
+    pz1_1[NUM_BRANCHES],
+    pz2_1[NUM_BRANCHES],
+    qz1_1[NUM_BRANCHES],
+    qz2_1[NUM_BRANCHES],
+    pqz_2[NUM_BRANCHES],
+    pz1_2[NUM_BRANCHES],
+    pz2_2[NUM_BRANCHES],
+    qz1_2[NUM_BRANCHES],
+    qz2_2[NUM_BRANCHES];   
+
+  
+  doNNIs(tr, tr->start->back, lhVectors, shSupport, &interchanges, &innerBranches,
+	 pqz_0, pz1_0, pz2_0, qz1_0, qz2_0, pqz_1, pz1_1, pz2_1,
+	 qz1_1, qz2_1, pqz_2, pz1_2, pz2_2, qz1_2, qz2_2);
+
+  assert(innerBranches == (tr->mxtips - 3));
+
+  return interchanges;
+}
+
+static int *permutationSH(tree *tr, int nBootstrap) 
+{
+  int 
+    replicate,
     model,
-    i,
-    replicate;
-
-  size_t 
-    bufferSize;
-
+    maxNonZero = 0,
+    *weightBuffer,   
+    *col = (int*)calloc(((size_t)tr->cdta->endsite) * ((size_t)nBootstrap), sizeof(int)),
+    *nonzero = (int*)calloc(tr->NumberOfModels, sizeof(int));
+  
   long 
     randomSeed = 12345;
   
+  size_t 
+    bufferSize;
+  
   for(model = 0; model < tr->NumberOfModels; model++)
-    {
+    { 
       int 
-	width = tr->partitionData[model].upper - tr->partitionData[model].lower;
-
-      for(i = 0; i < width; i++)
-	nonzero[model] += tr->partitionData[model].wgt[i];
-
+	j;
+          	       
+      for (j = 0; j < tr->cdta->endsite; j++)  
+	{
+	  if(tr->originalModel[j] == model)
+	    nonzero[model] += tr->originalWeights[j];
+	}		
+      
       if(nonzero[model] > maxNonZero)
-	maxNonZero = nonzero[model];
+	maxNonZero = nonzero[model];      
     }
-
+  
   bufferSize = ((size_t)maxNonZero) * sizeof(int);
-  buffer = (int*)malloc(bufferSize);
-   
+  weightBuffer = (int*)malloc(bufferSize);
+
   for(replicate = 0; replicate < nBootstrap; replicate++)
     {      
-      int offset = 0;
+      int
+	j,       
+	*wgt = &col[((size_t)tr->cdta->endsite) * ((size_t)replicate)];
 
       for(model = 0; model < tr->NumberOfModels; model++)
 	{
 	  int
-	    w, 
-	    pos,
-	    width = tr->partitionData[model].upper - tr->partitionData[model].lower,
-	    *wgt = &col[tr->cdta->endsite * replicate + offset];
-	  
-	  memset(buffer, 0, bufferSize);
+	    pos,	    
+	    nonz = nonzero[model];
+     
+	  memset(weightBuffer, 0, bufferSize);
 
-	  for(i = 0; i < nonzero[model]; i++)
-	    buffer[(int) (nonzero[model] * randum(&randomSeed))]++; 
+	  for(j = 0; j < nonz; j++)
+	    weightBuffer[(int) (nonz * randum(&randomSeed))]++; 	 
 
-	  for(i = 0, pos = 0; i < width; i++)
-	    for(w = 0; w < tr->partitionData[model].wgt[i]; w++)	  	  	 
-	      {
-		wgt[i] += buffer[pos];
-		pos++;		      
-	      }
-
-	  offset += width;
+	  for(j = 0, pos = 0; j < tr->cdta->endsite; j++) 
+	    {
+	      if(model == tr->originalModel[j])
+		{
+		  int 
+		    w;
+		  
+		  for(w = 0; w < tr->originalWeights[j]; w++)	  	  	 
+		    {
+		      wgt[j] += weightBuffer[pos];
+		      pos++;		      
+		    }				   
+		}
+	    }	  
 	}
     }
-  
-  free(buffer);
+
+
+  free(weightBuffer);
   free(nonzero);
 
   return col;
 }
+
+
+
 
 
 
@@ -1105,8 +1159,7 @@ void fastSearch(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
     *lhVectors[3];
 
   char 
-    bestTreeFileName[1024],
-    shSupportFileName[1024];
+    bestTreeFileName[1024];
   
   FILE 
     *f;
@@ -1115,21 +1168,10 @@ void fastSearch(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
     interchanges;
 
  
-  if(adef->shSupports)
-    {     
-      tr->resample = PermutationSH(tr, 1000);
-      
-      lhVectors[0] = (double *)malloc(sizeof(double) * tr->cdta->endsite);
-      lhVectors[1] = (double *)malloc(sizeof(double) * tr->cdta->endsite);
-      lhVectors[2] = (double *)malloc(sizeof(double) * tr->cdta->endsite);
-      tr->bInf = (branchInfo*)malloc(sizeof(branchInfo) * (tr->mxtips - 3));      
-    }
-  else
-    {
-      lhVectors[0] = (double *)NULL;
-      lhVectors[1] = (double *)NULL;
-      lhVectors[2] = (double *)NULL;
-    }
+  
+  lhVectors[0] = (double *)NULL;
+  lhVectors[1] = (double *)NULL;
+  lhVectors[2] = (double *)NULL;  
       
   /* initialize model parameters with standard starting values */
 
@@ -1150,8 +1192,15 @@ void fastSearch(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
      rough model parameter optimization, the log likelihood epsilon should 
      actually be determined based on the initial tree score and not be hard-coded 
   */
-
-  modOpt(tr, adef, FALSE, 10.0);
+  
+ if(adef->useBinaryModelFile)
+    {
+      readBinaryModel(tr);
+      evaluateGenericInitrav(tr, tr->start);
+      treeEvaluate(tr, 2);
+    }
+ else
+   modOpt(tr, adef, FALSE, 10.0, TRUE);
   
   printBothOpen("Time after init, starting tree, mod opt: %f\n", gettime() - masterTime);
 
@@ -1191,38 +1240,16 @@ void fastSearch(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
       /* optimize br-lens of resulting topology a bit */
       evaluateGeneric(tr, tr->start); 
                
-      interchanges = 0;
-      doNNIs(tr, tr->start->back, lhVectors, FALSE, &interchanges, TRUE);
-	           
+      interchanges = encapsulateNNIs(tr, lhVectors, FALSE);           
+      
+
       /*treeEvaluate(tr, 1);             */
 
       printBothOpen("%f\n", tr->likelihood);
     }
   while(ABS(likelihood - startLikelihood) > 0.5);
 
-  if(adef->shSupports)
-    {
-      int 
-	counter = 0;
-
-      do
-	{
-	  interchanges = 0;
-	  doNNIs(tr, tr->start->back, lhVectors, FALSE, &interchanges, FALSE);
-	  
-	  evaluateGeneric(tr, tr->start); 
-	  
-	  /*printf("Inter %d %f\n", interchanges, tr->likelihood);*/
-	}
-      while(interchanges > 0);
-
-      printBothOpen("Final Likelihood SH-Supports: %f\n", tr->likelihood);
-
-      setupBranchInfo(tr->start->back, tr, &counter);
-      assert(counter == tr->mxtips - 3);
-      interchanges = 0;
-      doNNIs(tr, tr->start->back, lhVectors, TRUE, &interchanges, FALSE);
-    }
+ 
   
  
 
@@ -1237,31 +1264,123 @@ void fastSearch(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
 
  
 
-  Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, FALSE, FALSE, adef, SUMMARIZE_LH, FALSE);
+  Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, FALSE, FALSE, adef, SUMMARIZE_LH, FALSE, FALSE);
     
   f = myfopen(bestTreeFileName, "wb");
   fprintf(f, "%s", tr->tree_string);
   fclose(f);  
 
-  if(adef->shSupports)
-    {
-      strcpy(shSupportFileName, workdir); 
-      strcat(shSupportFileName, "RAxML_fastTreeSH_Support.");
-      strcat(shSupportFileName,         run_id);
-    
-      Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, FALSE, FALSE, adef, SUMMARIZE_LH, TRUE);
-    
-      f = myfopen(shSupportFileName, "wb");
-      fprintf(f, "%s", tr->tree_string);
-      fclose(f);  
-
-    }
+ 
     
   printBothOpen("RAxML fast tree written to file: %s\n", bestTreeFileName);
-  if(adef->shSupports)
-    printBothOpen("RAxML fast tree with SH-like supports written to file: %s\n", shSupportFileName);
+  
+  writeBinaryModel(tr);
   
   printBothOpen("Total execution time: %f\n", gettime() - masterTime);
 
   printBothOpen("Good bye ... \n");
+}
+
+
+void shSupports(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
+{
+  double 
+    diff,
+    *lhVectors[3];
+
+  char 
+    bestTreeFileName[1024],
+    shSupportFileName[1024];
+  
+  FILE 
+    *f;
+
+  int
+    interchanges = 0,
+    counter = 0;
+
+  assert(adef->restart);
+    
+  tr->resample = permutationSH(tr, 1000);
+    
+  lhVectors[0] = (double *)malloc(sizeof(double) * tr->cdta->endsite);
+  lhVectors[1] = (double *)malloc(sizeof(double) * tr->cdta->endsite);
+  lhVectors[2] = (double *)malloc(sizeof(double) * tr->cdta->endsite);
+  tr->bInf = (branchInfo*)malloc(sizeof(branchInfo) * (tr->mxtips - 3));       
+
+  initModel(tr, rdta, cdta, adef);        
+ 
+ 
+  getStartingTree(tr, adef);
+  
+ 
+  
+  if(adef->useBinaryModelFile)
+    {
+      readBinaryModel(tr);
+      evaluateGenericInitrav(tr, tr->start);
+      treeEvaluate(tr, 2);
+    }
+  else
+    modOpt(tr, adef, FALSE, 10.0, TRUE);
+  
+  printBothOpen("Time after model optimization: %f\n", gettime() - masterTime);
+  
+  printBothOpen("Initial Likelihood %f\n\n", tr->likelihood);   
+    
+  do
+    {   
+      double 
+	lh1,
+	lh2;
+   
+      lh1 = tr->likelihood;
+
+      interchanges = encapsulateNNIs(tr, lhVectors, FALSE);       
+
+      evaluateGeneric(tr, tr->start); 		
+
+      lh2 = tr->likelihood;
+
+      diff = ABS(lh1 - lh2);
+
+      printBothOpen("NNI interchanges %d Likelihood %f\n", interchanges, tr->likelihood);
+    }
+  while(diff > 0.01);
+
+  printBothOpen("\nFinal Likelihood of NNI-optimized tree: %f\n\n", tr->likelihood);
+
+  setupBranchInfo(tr->start->back, tr, &counter);
+  assert(counter == tr->mxtips - 3);
+ 
+  interchanges = encapsulateNNIs(tr, lhVectors, TRUE);
+              
+  strcpy(bestTreeFileName, workdir); 
+  strcat(bestTreeFileName, "RAxML_fastTree.");
+  strcat(bestTreeFileName,         run_id); 
+
+  Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, FALSE, FALSE, adef, SUMMARIZE_LH, FALSE, FALSE);
+    
+  f = myfopen(bestTreeFileName, "wb");
+  fprintf(f, "%s", tr->tree_string);
+  fclose(f);  
+
+  
+  strcpy(shSupportFileName, workdir); 
+  strcat(shSupportFileName, "RAxML_fastTreeSH_Support.");
+  strcat(shSupportFileName,         run_id);
+  
+  Tree2String(tr->tree_string, tr, tr->start->back, TRUE, TRUE, FALSE, FALSE, FALSE, adef, SUMMARIZE_LH, FALSE, TRUE);
+  
+  f = myfopen(shSupportFileName, "wb");
+  fprintf(f, "%s", tr->tree_string);
+  fclose(f);  
+      
+  printBothOpen("RAxML NNI-optimized tree written to file: %s\n", bestTreeFileName);
+  
+  printBothOpen("Same tree with SH-like supports written to file: %s\n", shSupportFileName);
+  
+  printBothOpen("Total execution time: %f\n", gettime() - masterTime);
+
+  exit(0);
 }

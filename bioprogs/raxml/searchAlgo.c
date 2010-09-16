@@ -123,7 +123,10 @@ boolean update(tree *tr, nodeptr p)
 	  if(ABS(z[i] - z0[i]) > _deltaz)  
 	    {	      
 	      smoothedPartitions[i] = FALSE;       
-	    }	             
+	    }	 
+
+	  
+	  
 	  p->z[i] = q->z[i] = z[i];	 
 	}
     }
@@ -1158,8 +1161,9 @@ int determineRearrangementSetting(tree *tr,  analdef *adef, bestlist *bestT, bes
 
 void computeBIGRAPID (tree *tr, analdef *adef, boolean estimateModel) 
 { 
+  unsigned int
+    vLength = 0;
   int
-    vLength = 0,
     i,
     impr, 
     bestTrav,
@@ -1199,7 +1203,7 @@ void computeBIGRAPID (tree *tr, analdef *adef, boolean estimateModel)
   Thorough = 0;     
   
   if(estimateModel)
-    modOpt(tr, adef, FALSE, 10.0);
+    modOpt(tr, adef, FALSE, 10.0, FALSE);
   else
     treeEvaluate(tr, 2);  
 
@@ -1214,7 +1218,7 @@ void computeBIGRAPID (tree *tr, analdef *adef, boolean estimateModel)
     bestTrav = adef->bestTrav = adef->initial;
 
   if(estimateModel)
-    modOpt(tr, adef, FALSE, 5.0);
+    modOpt(tr, adef, FALSE, 5.0, FALSE);
   else
     treeEvaluate(tr, 1);
   
@@ -1303,7 +1307,7 @@ void computeBIGRAPID (tree *tr, analdef *adef, boolean estimateModel)
   
   recallBestTree(bestT, 1, tr); 
   if(estimateModel)
-    modOpt(tr, adef, FALSE, 1.0);
+    modOpt(tr, adef, FALSE, 1.0, FALSE);
   else
     treeEvaluate(tr, 1.0);
 
@@ -1595,17 +1599,172 @@ boolean treeEvaluate (tree *tr, double smoothFactor)       /* Evaluate a user tr
   return TRUE;
 }
 
+static void setupBranches(tree *tr, nodeptr p,  branchInfo *bInf)
+{
+  int    
+    countBranches = tr->branchCounter;
+
+  if(isTip(p->number, tr->mxtips))    
+    {      
+      p->bInf       = &bInf[countBranches];
+      p->back->bInf = &bInf[countBranches];               	      
+
+      bInf[countBranches].oP = p;
+      bInf[countBranches].oQ = p->back;
+           
+      tr->branchCounter =  tr->branchCounter + 1;
+      return;
+    }
+  else
+    {
+      nodeptr q;
+      assert(p == p->next->next->next);
+
+      p->bInf       = &bInf[countBranches];
+      p->back->bInf = &bInf[countBranches];
+
+      bInf[countBranches].oP = p;
+      bInf[countBranches].oQ = p->back;      
+
+      tr->branchCounter =  tr->branchCounter + 1;      
+
+      q = p->next;
+
+      while(q != p)
+	{
+	  setupBranches(tr, q->back, bInf);	
+	  q = q->next;
+	}
+     
+      return;
+    }
+}
+ 
+static void makePerm(int *perm, int n)
+{
+  int  i, j, k;
+
+   
+  srand(12345);          
+           
+  for (i = 0; i < n; i++) 
+    {    
+      k        = randomInt(n - i);
+
+      assert(i + k < n);
+
+      j        = perm[i];
+      perm[i]     = perm[i + k];
+      perm[i + k] = j; 
+    }  
 
 
+}
+
+static void smoothTreeRandom (tree *tr, int maxtimes)
+{
+  nodeptr  p;   
+  int i, k, *perm;
+
+  tr->branchCounter = 0;
+  tr->numberOfBranches = 2 * tr->mxtips - 3;
+  
+  tr->bInf = (branchInfo*)malloc(tr->numberOfBranches * sizeof(branchInfo)); 
+
+  perm = (int*)malloc(sizeof(int) * tr->numberOfBranches);
+
+  setupBranches(tr, tr->start->back, tr->bInf);
 
 
+  p = tr->start;
+  for(i = 0; i < tr->numBranches; i++)
+    tr->partitionConverged[i] = FALSE;
+
+  /*printf("%d \n", maxtimes);*/
+
+  while (--maxtimes >= 0) 
+    {    
+      for(i = 0; i < tr->numBranches; i++)	
+	tr->partitionSmoothed[i] = TRUE;		
+
+      /*printf("%d %d\n", maxtimes, tr->numberOfBranches);*/
+
+      for(k = 0; k < tr->numberOfBranches; k++)
+	perm[k] = k;
+
+      makePerm(perm, tr->numberOfBranches);
+
+      for(k = 0; k < tr->numberOfBranches; k++)
+	{
+	  /*printf("%d Node %d\n", k, tr->bInf[k].oP->number);*/
+	  update(tr, tr->bInf[perm[k]].oP);
+	  newviewGeneric(tr, tr->bInf[perm[k]].oP);     
+	}
+
+      /*if (! smooth(tr, p->back))       return FALSE;
+      if (!isTip(p->number, tr->rdta->numsp)) 
+	{
+	  q = p->next;
+	  while (q != p) 
+	    {
+	      if (! smooth(tr, q->back))   return FALSE;
+	      q = q->next;
+	    }
+	}             
+      */
+
+      if (allSmoothed(tr)) 
+	break;      
+    }
+
+  for(i = 0; i < tr->numBranches; i++)
+    tr->partitionConverged[i] = FALSE;
+
+  free(tr->bInf);
+  free(perm);
+} 
 
 
+void treeEvaluateRandom (tree *tr, double smoothFactor)       
+{
+ 
+  smoothTreeRandom(tr, (int)((double)smoothings * smoothFactor));
+  
 
+  evaluateGeneric(tr, tr->start);       
+}
 
+void treeEvaluateProgressive(tree *tr)
+{  
+  int 
+    i, k;
 
+  tr->branchCounter = 0;
+  tr->numberOfBranches = 2 * tr->mxtips - 3;
+  
+  tr->bInf = (branchInfo*)malloc(tr->numberOfBranches * sizeof(branchInfo));  
 
+  setupBranches(tr, tr->start->back, tr->bInf);
 
+  assert(tr->branchCounter == tr->numberOfBranches);
+  
+  for(i = 0; i < tr->numBranches; i++)
+    tr->partitionConverged[i] = FALSE;
+  
+  for(i = 0; i < 10; i++)
+    {
+      for(k = 0; k < tr->numberOfBranches; k++)
+	{      
+	  update(tr, tr->bInf[k].oP);
+	  newviewGeneric(tr, tr->bInf[k].oP);     
+	}
+      evaluateGenericInitrav(tr, tr->start);
+      printf("It %d %f \n", i, tr->likelihood);
+    }
+}
+   
+
+  
 
 
 

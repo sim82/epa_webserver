@@ -34,9 +34,7 @@ double lastCheckpointTime;
 double checkPointInterval = 3600.0;
 #endif
 
-#ifdef PARALLEL
-int numOfWorkers;
-#endif
+
 
 #ifdef _WAYNE_MPI
 int processes;
@@ -65,6 +63,7 @@ char run_id[128] = "",
   infoFileName[1024] = "", 
   randomFileName[1024] = "",   
   bootstrapFileName[1024] = "", 
+  bootstrapFileNamePID[1024] = "",
   bipartitionsFileName[1024] = "",
   bipartitionsFileNameBranchLabels[1024] = "",
   ratesFileName[1024] = "", 
@@ -72,7 +71,9 @@ char run_id[128] = "",
   lengthFileName[1024] = "", 
   lengthFileNameModel[1024] = "",
   proteinModelFileName[1024] = "",
-  secondaryStructureFileName[1024] = "";
+  secondaryStructureFileName[1024] = "",
+  binaryModelParamsOutputFileName[1024] = "",
+  binaryModelParamsInputFileName[1024] = "";
 
 char *protModels[12] = {"DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG", "GTR"};
 
@@ -198,7 +199,7 @@ volatile double          *reductionBuffer;
 volatile double          *reductionBufferTwo;
 volatile double          *reductionBufferThree;
 volatile int             *reductionBufferParsimony;
-volatile int             *barrierBuffer;
+volatile char             *barrierBuffer;
 
 volatile branchInfo      **branchInfos;
 pthread_mutex_t          mutex;

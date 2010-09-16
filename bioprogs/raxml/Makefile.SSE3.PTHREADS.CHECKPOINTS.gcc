@@ -13,7 +13,7 @@ DMTCPAWARELIB=/usr/lib/dmtcp/libdmtcpaware.a
 
 RM = rm -f
 
-objs    = axml.o raxmlParsimony.o optimizeModel.o multiple.o searchAlgo.o topologies.o parsePartitions.o treeIO.o models.o bipartitionList.o rapidBootstrap.o evaluatePartialGenericSpecial.o evaluateGenericSpecial.o newviewGenericSpecial.o makenewzGenericSpecial.o   classify.o mesh.o fastDNAparsimony.o fastSearch.o
+objs    = axml.o raxmlParsimony.o optimizeModel.o multiple.o searchAlgo.o topologies.o parsePartitions.o treeIO.o models.o bipartitionList.o rapidBootstrap.o evaluatePartialGenericSpecial.o evaluateGenericSpecial.o newviewGenericSpecial.o makenewzGenericSpecial.o   classify.o mesh.o fastDNAparsimony.o fastSearch.o leaveDropping.o rogueEPA.o
 
 all : raxmlHPC
 
@@ -43,6 +43,8 @@ makenewzGenericSpecial.o : makenewzGenericSpecial.c $(GLOBAL_DEPS)
 mesh.o : mesh.c $(GLOBAL_DEPS)
 fastDNAparsimony.o : fastDNAparsimony.c  $(GLOBAL_DEPS)
 fastSearch.o : fastSearch.c $(GLOBAL_DEPS)
+leaveDropping.o : leaveDropping.c $(GLOBAL_DEPS)
+rogueEPA.o : rogueEPA.c $(GLOBAL_DEPS)
 
 clean : 
 	$(RM) *.o raxmlHPC-PTHREADS-SSE3

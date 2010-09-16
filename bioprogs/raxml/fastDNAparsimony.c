@@ -116,39 +116,7 @@ static void computeTraversalInfoParsimony(nodeptr p, int *ti, int *counter, int 
   __builtin_popcount(x)
 */
 
-/* 
-   Iterated bitcount iterates over each bit. The while condition sometimes helps
-   terminates the loop earlier 
-*/
 
-static int iterated_bitcount (unsigned int n)
-{
-    int count=0;    
-    while (n)
-      {
-        count += n & 0x1u ;    
-        n >>= 1 ;
-      }
-    return count ;
-}
-
-static char bits_in_16bits [0x1u << 16];
-
-static void compute_bits_in_16bits (void)
-{
-    unsigned int i ;    
-    for (i = 0; i < (0x1u<<16); i++)
-        bits_in_16bits [i] = iterated_bitcount (i) ;
-    return ;
-}
-
-static unsigned int precomputed16_bitcount (unsigned int n)
-{
-    // works only for 32-bit int
-    
-    return bits_in_16bits [n         & 0xffffu]
-        +  bits_in_16bits [(n >> 16) & 0xffffu] ;
-}
 
 #ifdef __SIM_SSE3
 
@@ -172,31 +140,31 @@ static unsigned int vectorCount(__m128i b)
     tmp2;
  
 
-  // b = (b & 0x55555555) + (b >> 1 & 0x55555555);
-  tmp1 = _mm_srli_epi32(b, 1);                    // tmp1 = (b >> 1 & 0x55555555)
+  /* b = (b & 0x55555555) + (b >> 1 & 0x55555555); */
+  tmp1 = _mm_srli_epi32(b, 1);                    /* tmp1 = (b >> 1 & 0x55555555)*/
   tmp1 = _mm_and_si128(tmp1, m1); 
-  tmp2 = _mm_and_si128(b, m1);                    // tmp2 = (b & 0x55555555)
-  b    = _mm_add_epi32(tmp1, tmp2);               //  b = tmp1 + tmp2
+  tmp2 = _mm_and_si128(b, m1);                    /* tmp2 = (b & 0x55555555) */
+  b    = _mm_add_epi32(tmp1, tmp2);               /*  b = tmp1 + tmp2 */
 
-  // b = (b & 0x33333333) + (b >> 2 & 0x33333333);
-  tmp1 = _mm_srli_epi32(b, 2);                    // (b >> 2 & 0x33333333)
+  /* b = (b & 0x33333333) + (b >> 2 & 0x33333333); */
+  tmp1 = _mm_srli_epi32(b, 2);                    /* (b >> 2 & 0x33333333) */
   tmp1 = _mm_and_si128(tmp1, m2); 
-  tmp2 = _mm_and_si128(b, m2);                    // (b & 0x33333333)
-  b    = _mm_add_epi32(tmp1, tmp2);               // b = tmp1 + tmp2
+  tmp2 = _mm_and_si128(b, m2);                    /* (b & 0x33333333) */
+  b    = _mm_add_epi32(tmp1, tmp2);               /* b = tmp1 + tmp2 */
 
-  // b = (b + (b >> 4)) & 0x0F0F0F0F;
-  tmp1 = _mm_srli_epi32(b, 4);                    // tmp1 = b >> 4
-  b = _mm_add_epi32(b, tmp1);                     // b = b + (b >> 4)
-  b = _mm_and_si128(b, m3);                       //           & 0x0F0F0F0F
+  /* b = (b + (b >> 4)) & 0x0F0F0F0F; */
+  tmp1 = _mm_srli_epi32(b, 4);                    /* tmp1 = b >> 4 */
+  b = _mm_add_epi32(b, tmp1);                     /* b = b + (b >> 4) */
+  b = _mm_and_si128(b, m3);                       /*           & 0x0F0F0F0F */
 
-  // b = b + (b >> 8);
-  tmp1 = _mm_srli_epi32 (b, 8);                   // tmp1 = b >> 8
-  b = _mm_add_epi32(b, tmp1);                     // b = b + (b >> 8)
+  /* b = b + (b >> 8); */
+  tmp1 = _mm_srli_epi32 (b, 8);                   /* tmp1 = b >> 8 */
+  b = _mm_add_epi32(b, tmp1);                     /* b = b + (b >> 8) */
   
-  // b = (b + (b >> 16)) & 0x0000003F;
-  tmp1 = _mm_srli_epi32 (b, 16);                  // b >> 16
-  b = _mm_add_epi32(b, tmp1);                     // b + (b >> 16)
-  b = _mm_and_si128(b, m4);                       // (b >> 16) & 0x0000003F;  
+  /* b = (b + (b >> 16)) & 0x0000003F; */
+  tmp1 = _mm_srli_epi32 (b, 16);                  /* b >> 16 */
+  b = _mm_add_epi32(b, tmp1);                     /* b + (b >> 16) */
+  b = _mm_and_si128(b, m4);                       /* (b >> 16) & 0x0000003F; */
    
   _mm_store_si128((__m128i *)tcnt, b);
 
@@ -254,16 +222,7 @@ void newviewParsimonyIterativeFast(tree *tr)
 	*rightState_T = tr->parsimonyState_T[rNumber],
 	*thisState_T  = tr->parsimonyState_T[pNumber]; 	           
       
-      register parsimonyNumber
-	o_A,
-	o_C,
-	o_G,
-	o_T,
-	t_A,
-	t_C,
-	t_G,
-	t_T,       
-	t_N;
+      
       
       unsigned int	
 	i,            
@@ -339,12 +298,7 @@ unsigned int evaluateParsimonyIterativeFast(tree *tr)
     bestScore = tr->bestParsimony,
     width = tr->compressedWidth,
     i,   
-    sum,
-    t_A,
-    t_C,
-    t_G,
-    t_T,
-    t_N;
+    sum;
 
   parsimonyNumber
     *rightState_A = tr->parsimonyState_A[pNumber], 
@@ -1213,12 +1167,7 @@ static void stepwiseAddition(tree *tr, nodeptr p, nodeptr q)
   
     unsigned int       
       width = tr->compressedWidth,
-      i,       
-      t_A,
-      t_C,
-      t_G,
-      t_T,
-      t_N;
+      i;
     
     parsimonyNumber
       *rightState_A = tr->parsimonyState_A[pNumber], 
@@ -1334,11 +1283,7 @@ void makeParsimonyTreeFastDNA(tree *tr, analdef *adef)
     startMP;        
 
   parsimonyNumber 
-    *parsimonySpace;
-
-  /* initialize bit counter lookup table */
-
-  compute_bits_in_16bits();
+    *parsimonySpace;  
   
   /* stuff for informative sites */
  

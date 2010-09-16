@@ -720,6 +720,7 @@ static unsigned int evalPerSitePROT(unsigned char *right, parsimonyVector *right
   return acc;
 }
 
+
 static unsigned int evaluatePerSiteParsimonyIterative(tree *tr, unsigned int *siteParsimony)
 {
   int pNumber, qNumber, model;   
@@ -781,6 +782,7 @@ static unsigned int evaluatePerSiteParsimonyIterative(tree *tr, unsigned int *si
   return result;
 }
 
+
 unsigned int evaluatePerSiteParsimony(tree *tr, nodeptr p, unsigned int *siteParsimony)
 {
   volatile unsigned int result;
@@ -796,15 +798,7 @@ unsigned int evaluatePerSiteParsimony(tree *tr, nodeptr p, unsigned int *sitePar
     computeTraversalInfoParsimony(q, &(tr->td[0].ti[0]), &(tr->td[0].count), tr->mxtips); 
 
 #ifdef _USE_PTHREADS
-  assert(0);
-  /*{
-    int i;    
-
-    masterBarrier(THREAD_EVALUATE_PARSIMONY, tr);    
-    
-    for(i = 0, result = 0; i < NumberOfThreads; i++)
-      result += reductionBufferParsimony[i]; 
-      }*/
+  assert(0);  
 #else
   result = evaluatePerSiteParsimonyIterative(tr, siteParsimony);
 #endif
@@ -1105,26 +1099,22 @@ void makePermutation(int *perm, int n, analdef *adef)
 {    
   int  i, j, k;
 
-#ifdef PARALLEL
-   srand((unsigned int) gettimeSrand()); 
-#else
+
   if(adef->parsimonySeed == 0)   
     srand((unsigned int) gettimeSrand());          
-#endif
+
 
   for (i = 1; i <= n; i++)    
     perm[i] = i;               
 
   for (i = 1; i <= n; i++) 
     {
-#ifdef PARALLEL      
-      k        = randomInt(n + 1 - i);
-#else
+
      if(adef->parsimonySeed == 0) 
        k        = randomInt(n + 1 - i);
      else
        k =  (int)((double)(n + 1 - i) * randum(&adef->parsimonySeed));
-#endif
+
      assert(i + k <= n);
 
      j        = perm[i];
@@ -1311,7 +1301,7 @@ static void sortInformativeSites(tree *tr, int *informative)
 
   for(i = 0; i < tr->mxtips; i++)
     {
-      unsigned char *yPos    = &(tr->rdta->y0[tr->originalCrunchedLength * i]);        
+      unsigned char *yPos    = &(tr->rdta->y0[((size_t)tr->originalCrunchedLength) * ((size_t)i)]);        
       
       for(j = 0, l = 0; j < tr->cdta->endsite; j++)       
 	if(informative[j])	  	      
@@ -2125,23 +2115,19 @@ void makeParsimonyTreeIncomplete(tree *tr, analdef *adef)
 	}
     }
      
-#ifdef PARALLEL
-  srand((unsigned int) gettimeSrand()); 
-#else
+
   if(adef->parsimonySeed == 0)   
     srand((unsigned int) gettimeSrand());         
-#endif
+
 
   for (i = tr->ntips + 1; i <= tr->mxtips; i++) 
     {
-#ifdef PARALLEL         
-      k        = randomInt(tr->mxtips + 1 - i);
-#else
+
       if(adef->parsimonySeed == 0) 
 	k        = randomInt(tr->mxtips + 1 - i);
       else
 	k =  (int)((double)(tr->mxtips + 1 - i) * randum(&adef->parsimonySeed));
-#endif
+
       assert(i + k <= tr->mxtips);
       j        = perm[i];
       perm[i]     = perm[i + k];
@@ -2468,7 +2454,7 @@ void makeParsimonyTreeThorough(tree *tr, analdef *adef)
 
   assert(bestMP == overallBestMP);
 
-  Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, FALSE, TRUE, adef, NO_BRANCHES, FALSE);
+  Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, FALSE, TRUE, adef, NO_BRANCHES, FALSE, FALSE);
   
   outf = myfopen(permFileName, "wb");
   fprintf(outf, "%s", tr->tree_string);

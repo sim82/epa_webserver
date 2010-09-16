@@ -51,7 +51,7 @@ extern volatile double *reductionBuffer;
 extern volatile int NumberOfThreads;
 #endif
 
-extern const int mask32[32];
+extern const unsigned int mask32[32];
 
 
 static void calcDiagptableFlex(double z, int numberOfCategories, double *rptr, double *EIGN, double *diagptable, const int numStates)
@@ -188,6 +188,156 @@ static double evaluateCatFlex(int *ex1, int *ex2, int *cptr, int *wptr,
   
   return  sum;         
 } 
+
+static double evaluateGammaFlex_GAPPED(int *ex1, int *ex2, int *wptr,
+				       double *x1_start, double *x2_start,  
+				       double *tipVector, 
+				       unsigned char *tipX1, int n, double *diagptable, double *vector, boolean writeVector, const boolean fastScaling, const int numStates,
+				       double *x1_gapColumn, double *x2_gapColumn, unsigned int *x1_gap, unsigned int *x2_gap)
+{
+  double   
+    sum = 0.0, 
+    term,
+    *left, 
+    *right,
+    *x1,
+    *x2;
+  
+  int     
+    i, 
+    j, 
+    l; 
+
+  const int 
+    gammaStates = numStates * 4;
+            
+  if(tipX1)
+    {          
+      if(writeVector)
+	for (i = 0; i < n; i++) 
+	  {
+	    left = &(tipVector[numStates * tipX1[i]]);	  	  
+	    
+	    if(x2_gap[i / 32] & mask32[i % 32])
+	      x2 = x2_gapColumn;
+	    else
+	      x2 = &x2_start[gammaStates * i];
+
+	    for(j = 0, term = 0.0; j < 4; j++)
+	      {
+		right = &(x2[numStates * j]);
+		
+		for(l = 0; l < numStates; l++)
+		  term += left[l] * right[l] * diagptable[j * numStates + l];	      
+	      }	 
+	    
+	    if(fastScaling)
+	      term = LOG(0.25 * term);
+	    else
+	      term = LOG(0.25 * term) + (ex2[i] * LOG(minlikelihood));	   
+	    	    
+	    vector[i] = term;
+	    
+	    sum += wptr[i] * term;
+	  }         
+      else
+	{       
+	  for (i = 0; i < n; i++) 
+	    {	     
+	      left = &(tipVector[numStates * tipX1[i]]);	 
+
+	      if(x2_gap[i / 32] & mask32[i % 32])
+		x2 = x2_gapColumn;
+	      else
+		x2 = &x2_start[gammaStates * i];
+
+	      
+	      for(j = 0, term = 0.0; j < 4; j++)
+		{
+		  right = &(x2[numStates * j]);
+		  
+		  for(l = 0; l < numStates; l++)
+		    term += left[l] * right[l] * diagptable[j * numStates + l];	      
+		}
+	      
+	      if(fastScaling)
+		term = LOG(0.25 * term);
+	      else
+		term = LOG(0.25 * term) + (ex2[i] * LOG(minlikelihood));	   
+	      
+	      sum += wptr[i] * term;
+	    }     	 
+	}
+    }              
+  else
+    {
+      if(writeVector)
+	for (i = 0; i < n; i++) 
+	{	
+	  if(x1_gap[i / 32] & mask32[i % 32])
+	    x1 = x1_gapColumn;
+	  else
+	    x1 = &x1_start[gammaStates * i];
+  	 	             
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2 = x2_gapColumn;
+	  else
+	    x2 = &x2_start[gammaStates * i];
+
+
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      left  = &(x1[numStates * j]);
+	      right = &(x2[numStates * j]);	    
+	      
+	      for(l = 0; l < numStates; l++)
+		term += left[l] * right[l] * diagptable[j * numStates + l];	
+	    }
+	  
+	  if(fastScaling)
+	    term = LOG(0.25 * term);
+	  else
+	    term = LOG(0.25 * term) + ((ex1[i] + ex2[i])*LOG(minlikelihood));
+	
+	  vector[i] = term;
+  
+	  sum += wptr[i] * term;
+	}         
+      else
+	for (i = 0; i < n; i++) 
+	  {	  	 	             
+	    if(x1_gap[i / 32] & mask32[i % 32])
+	      x1 = x1_gapColumn;
+	    else
+	      x1 = &x1_start[gammaStates * i];
+	    
+	    if(x2_gap[i / 32] & mask32[i % 32])
+	      x2 = x2_gapColumn;
+	    else
+	      x2 = &x2_start[gammaStates * i];
+	    
+	    for(j = 0, term = 0.0; j < 4; j++)
+	      {
+		left  = &(x1[numStates * j]);
+		right = &(x2[numStates * j]);	    
+		
+		for(l = 0; l < numStates; l++)
+		  term += left[l] * right[l] * diagptable[j * numStates + l];	
+	      }
+	    
+	    if(fastScaling)
+	      term = LOG(0.25 * term);
+	    else
+	      term = LOG(0.25 * term) + ((ex1[i] + ex2[i])*LOG(minlikelihood));
+	    
+	    sum += wptr[i] * term;
+	  }         
+    }
+         
+  return  sum;
+}
+
+
 
 static double evaluateGammaFlex(int *ex1, int *ex2, int *wptr,
 				double *x1, double *x2,  
@@ -1005,18 +1155,33 @@ static double evaluateGTRCAT_BINARY (int *ex1, int *ex2, int *cptr, int *wptr,
 				     unsigned char *tipX1, int n, double *diagptable_start, const boolean fastScaling)
 {
   double  sum = 0.0, term;       
-  int     i, j;  
+  int     i;
+#ifndef  __SIM_SSE3
+  int j;  
+#endif
   double  *diagptable, *x1, *x2;                      	    
  
   if(tipX1)
     {          
       for (i = 0; i < n; i++) 
-	{	    		   	  
+	{
+#ifdef __SIM_SSE3
+	  double t[2] __attribute__ ((aligned (16)));	    		   	  
+#endif
 	  x1 = &(tipVector[2 * tipX1[i]]);
-	  x2 = &x2_start[2 * i];
+	  x2 = &(x2_start[2 * i]);
 	  
-	  diagptable = &diagptable_start[2 * cptr[i]];	    	    	  
+	  diagptable = &(diagptable_start[2 * cptr[i]]);	    	    	  
+	
+#ifdef __SIM_SSE3	  
+	  _mm_store_pd(t, _mm_mul_pd(_mm_load_pd(x1), _mm_mul_pd(_mm_load_pd(x2), _mm_load_pd(diagptable))));
 	  
+	  if(fastScaling)
+	    term = LOG(t[0] + t[1]);
+	  else
+	    term = LOG(t[0] + t[1]) + (ex2[i] * LOG(minlikelihood));			     
+#else
+  
 	  for(j = 0, term = 0.0; j < 2; j++)       
 	    term += x1[j] * x2[j] * diagptable[j];	      
 	  
@@ -1024,19 +1189,30 @@ static double evaluateGTRCAT_BINARY (int *ex1, int *ex2, int *cptr, int *wptr,
 	    term = LOG(term);
 	  else
 	    term = LOG(term) + (ex2[i] * LOG(minlikelihood));	   	    	   	 	  	  	 
-	  
+#endif	  
+
 	  sum += wptr[i] * term;
 	}	
     }               
   else
     {
       for (i = 0; i < n; i++) 
-	{		          	
+	{	
+#ifdef __SIM_SSE3
+	  double t[2] __attribute__ ((aligned (16)));	    		   	  
+#endif	          	
 	  x1 = &x1_start[2 * i];
 	  x2 = &x2_start[2 * i];
 	  
 	  diagptable = &diagptable_start[2 * cptr[i]];		  
+#ifdef __SIM_SSE3	  
+	  _mm_store_pd(t, _mm_mul_pd(_mm_load_pd(x1), _mm_mul_pd(_mm_load_pd(x2), _mm_load_pd(diagptable))));
 	  
+	  if(fastScaling)
+	    term = LOG(t[0] + t[1]);
+	  else
+	    term = LOG(t[0] + t[1]) + ((ex1[i] + ex2[i]) * LOG(minlikelihood));			     
+#else	  
 	  for(j = 0, term = 0.0; j < 2; j++)
 	    term += x1[j] * x2[j] * diagptable[j];   
 	  
@@ -1044,6 +1220,7 @@ static double evaluateGTRCAT_BINARY (int *ex1, int *ex2, int *cptr, int *wptr,
 	    term = LOG(term);
 	  else
 	    term = LOG(term) + ((ex1[i] + ex2[i]) * LOG(minlikelihood));
+#endif
 	  
 	  sum += wptr[i] * term;
 	}	   
@@ -1059,16 +1236,44 @@ static double evaluateGTRGAMMA_BINARY(int *ex1, int *ex2, int *wptr,
 				      unsigned char *tipX1, const int n, double *diagptable, const boolean fastScaling)
 {
   double   sum = 0.0, term;    
-  int     i, j, k;
+  int     i, j;
+#ifndef __SIM_SSE3
+  int k;
+#endif 
   double  *x1, *x2;             
 
   if(tipX1)
     {          
       for (i = 0; i < n; i++)
 	{
+#ifdef __SIM_SSE3
+	  double t[2] __attribute__ ((aligned (16)));
+	  __m128d termv, x1v, x2v, dv;
+#endif
 	  x1 = &(tipVector[2 * tipX1[i]]);	 
 	  x2 = &x2_start[8 * i];	          	  	
+#ifdef __SIM_SSE3	
+	  termv = _mm_set1_pd(0.0);	    	   
 	  
+	  for(j = 0; j < 4; j++)
+	    {
+	      x1v = _mm_load_pd(&x1[0]);
+	      x2v = _mm_load_pd(&x2[j * 2]);
+	      dv   = _mm_load_pd(&diagptable[j * 2]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);	      	      
+	    }
+	  
+	  _mm_store_pd(t, termv);	        
+	  
+	  if(fastScaling)
+	    term = LOG(0.25 * (t[0] + t[1]));
+	  else
+	    term = LOG(0.25 * (t[0] + t[1])) + (ex2[i] * LOG(minlikelihood));	  
+#else
 	  for(j = 0, term = 0.0; j < 4; j++)
 	    for(k = 0; k < 2; k++)
 	      term += x1[k] * x2[j * 2 + k] * diagptable[j * 2 + k];	          	  	  	    	    
@@ -1076,7 +1281,8 @@ static double evaluateGTRGAMMA_BINARY(int *ex1, int *ex2, int *wptr,
 	  if(fastScaling)
 	    term = LOG(0.25 * term);
 	  else
-	    term = LOG(0.25 * term) + ex2[i] * LOG(minlikelihood);	 
+	    term = LOG(0.25 * term) + ex2[i] * LOG(minlikelihood);
+#endif	 
 	  
 	  sum += wptr[i] * term;
 	}	  
@@ -1084,10 +1290,37 @@ static double evaluateGTRGAMMA_BINARY(int *ex1, int *ex2, int *wptr,
   else
     {         
       for (i = 0; i < n; i++) 
-	{	  	 	  	  
+	{
+#ifdef __SIM_SSE3
+	  double t[2] __attribute__ ((aligned (16)));
+	  __m128d termv, x1v, x2v, dv;
+#endif	  	 	  	  
 	  x1 = &x1_start[8 * i];
-	  x2 = &x2_start[8 * i];	  	  
+	  x2 = &x2_start[8 * i];
+	  	  
+#ifdef __SIM_SSE3	
+	  termv = _mm_set1_pd(0.0);	    	   
 	  
+	  for(j = 0; j < 4; j++)
+	    {
+	      x1v = _mm_load_pd(&x1[j * 2]);
+	      x2v = _mm_load_pd(&x2[j * 2]);
+	      dv   = _mm_load_pd(&diagptable[j * 2]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);	      	      
+	    }
+	  
+	  _mm_store_pd(t, termv);
+	  
+	  
+	  if(fastScaling)
+	    term = LOG(0.25 * (t[0] + t[1]));
+	  else
+	    term = LOG(0.25 * (t[0] + t[1])) + ((ex1[i] +ex2[i]) * LOG(minlikelihood));	  
+#else	  
 	  for(j = 0, term = 0.0; j < 4; j++)
 	    for(k = 0; k < 2; k++)
 	      term += x1[j * 2 + k] * x2[j * 2 + k] * diagptable[j * 2 + k];	          	  	  	      
@@ -1096,6 +1329,7 @@ static double evaluateGTRGAMMA_BINARY(int *ex1, int *ex2, int *wptr,
 	    term = LOG(0.25 * term);
 	  else
 	    term = LOG(0.25 * term) + (ex1[i] + ex2[i]) * LOG(minlikelihood);
+#endif
 
 	  sum += wptr[i] * term;
 	}                      	
@@ -1181,7 +1415,10 @@ static double evaluateGTRCAT (int *ex1, int *ex2, int *cptr, int *wptr,
 			      unsigned char *tipX1, int n, double *diagptable_start, const boolean fastScaling)
 {
   double  sum = 0.0, term;       
-  int     i, j;  
+  int     i;
+#ifndef __SIM_SSE3
+  int j;  
+#endif
   double  *diagptable, *x1, *x2;                      	    
  
   if(tipX1)
@@ -1335,6 +1572,324 @@ static double evaluateGTRCAT_FLOAT (int *ex1, int *ex2, int *cptr, int *wptr,
   return  ((double)sum);         
 } 
 
+#ifdef __SIM_SSE3
+
+static double evaluateGTRGAMMA_GAPPED(int *ex1, int *ex2, int *wptr,
+				      double *x1_start, double *x2_start, 
+				      double *tipVector, 
+				      unsigned char *tipX1, const int n, double *diagptable, const boolean fastScaling,
+				      double *x1_gapColumn, double *x2_gapColumn, unsigned int *x1_gap, unsigned int *x2_gap)
+{
+  double   sum = 0.0, term;    
+  int     i, j;
+  double  *x1, *x2;             
+
+ 
+
+  if(tipX1)
+    {          	
+      for (i = 0; i < n; i++)
+	{
+	  double t[2] __attribute__ ((aligned (16)));
+	  __m128d termv, x1v, x2v, dv;
+
+	  x1 = &(tipVector[4 * tipX1[i]]);	 
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2 = x2_gapColumn;
+	  else
+	    x2 = &x2_start[16 * i];	 
+	  
+	
+	  termv = _mm_set1_pd(0.0);	    	   
+	  
+	  for(j = 0; j < 4; j++)
+	    {
+	      x1v = _mm_load_pd(&x1[0]);
+	      x2v = _mm_load_pd(&x2[j * 4]);
+	      dv   = _mm_load_pd(&diagptable[j * 4]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);
+	      
+	      x1v = _mm_load_pd(&x1[2]);
+	      x2v = _mm_load_pd(&x2[j * 4 + 2]);
+	      dv   = _mm_load_pd(&diagptable[j * 4 + 2]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);
+	    }
+	  
+	  _mm_store_pd(t, termv);	  	 
+
+	  if(fastScaling)
+	    term = LOG(0.25 * (t[0] + t[1]));
+	  else
+	    term = LOG(0.25 * (t[0] + t[1])) + (ex2[i] * LOG(minlikelihood));	  
+	  
+	  sum += wptr[i] * term;
+	}     
+    }
+  else
+    {        
+      for (i = 0; i < n; i++) 
+	{
+
+	  double t[2] __attribute__ ((aligned (16)));
+	  __m128d termv, x1v, x2v, dv;
+
+	  if(x1_gap[i / 32] & mask32[i % 32])
+	    x1 = x1_gapColumn;
+	  else
+	    x1 = &x1_start[16 * i]; 	  	  
+	 	      
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2 = x2_gapColumn;
+	  else
+	    x2 = &x2_start[16 * i];
+	
+	  termv = _mm_set1_pd(0.0);	  	 
+	  
+	  for(j = 0; j < 4; j++)
+	    {
+	      x1v = _mm_load_pd(&x1[j * 4]);
+	      x2v = _mm_load_pd(&x2[j * 4]);
+	      dv   = _mm_load_pd(&diagptable[j * 4]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);
+	      
+	      x1v = _mm_load_pd(&x1[j * 4 + 2]);
+	      x2v = _mm_load_pd(&x2[j * 4 + 2]);
+	      dv   = _mm_load_pd(&diagptable[j * 4 + 2]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);
+	    }
+	  
+	  _mm_store_pd(t, termv);
+
+	  if(fastScaling)
+	    term = LOG(0.25 * (t[0] + t[1]));
+	  else
+	    term = LOG(0.25 * (t[0] + t[1])) + ((ex1[i] + ex2[i]) * LOG(minlikelihood));	  
+	  
+	  sum += wptr[i] * term;
+	}                      	
+    }
+
+  return sum;
+} 
+
+
+static double evaluateGTRGAMMA_GAPPED_SAVE(int *ex1, int *ex2, int *wptr,
+					   double *x1_start, double *x2_start, 
+					   double *tipVector, 
+					   unsigned char *tipX1, const int n, double *diagptable, const boolean fastScaling,
+					   double *x1_gapColumn, double *x2_gapColumn, unsigned int *x1_gap, unsigned int *x2_gap)
+{
+  double   sum = 0.0, term;    
+  int     i, j;
+  double  
+    *x1, 
+    *x2,
+    *x1_ptr = x1_start,
+    *x2_ptr = x2_start;
+
+ 
+
+  if(tipX1)
+    {        
+     
+      
+      for (i = 0; i < n; i++)
+	{
+	  double t[2] __attribute__ ((aligned (16)));
+	  __m128d termv, x1v, x2v, dv;
+
+	  x1 = &(tipVector[4 * tipX1[i]]);	 
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2 = x2_gapColumn;
+	  else
+	    {
+	      x2 = x2_ptr;	 
+	      x2_ptr += 16;
+	    }
+	  
+	
+	  termv = _mm_set1_pd(0.0);	    	   
+	  
+	  for(j = 0; j < 4; j++)
+	    {
+	      x1v = _mm_load_pd(&x1[0]);
+	      x2v = _mm_load_pd(&x2[j * 4]);
+	      dv   = _mm_load_pd(&diagptable[j * 4]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);
+	      
+	      x1v = _mm_load_pd(&x1[2]);
+	      x2v = _mm_load_pd(&x2[j * 4 + 2]);
+	      dv   = _mm_load_pd(&diagptable[j * 4 + 2]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);
+	    }
+	  
+	  _mm_store_pd(t, termv);	  	 
+
+	  if(fastScaling)
+	    term = LOG(0.25 * (t[0] + t[1]));
+	  else
+	    term = LOG(0.25 * (t[0] + t[1])) + (ex2[i] * LOG(minlikelihood));	  
+	  
+	  sum += wptr[i] * term;
+	}     
+    }
+  else
+    {        
+      
+      for (i = 0; i < n; i++) 
+	{
+
+	  double t[2] __attribute__ ((aligned (16)));
+	  __m128d termv, x1v, x2v, dv;
+
+	  if(x1_gap[i / 32] & mask32[i % 32])
+	    x1 = x1_gapColumn;
+	  else
+	    {
+	      x1 = x1_ptr; 	  	  
+	      x1_ptr += 16;
+	    }
+	 	      
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2 = x2_gapColumn;
+	  else
+	    {
+	      x2 = x2_ptr;
+	      x2_ptr += 16;
+	    }
+	
+	  termv = _mm_set1_pd(0.0);	  	 
+	  
+	  for(j = 0; j < 4; j++)
+	    {
+	      x1v = _mm_load_pd(&x1[j * 4]);
+	      x2v = _mm_load_pd(&x2[j * 4]);
+	      dv   = _mm_load_pd(&diagptable[j * 4]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);
+	      
+	      x1v = _mm_load_pd(&x1[j * 4 + 2]);
+	      x2v = _mm_load_pd(&x2[j * 4 + 2]);
+	      dv   = _mm_load_pd(&diagptable[j * 4 + 2]);
+	      
+	      x1v = _mm_mul_pd(x1v, x2v);
+	      x1v = _mm_mul_pd(x1v, dv);
+	      
+	      termv = _mm_add_pd(termv, x1v);
+	    }
+	  
+	  _mm_store_pd(t, termv);
+
+	  if(fastScaling)
+	    term = LOG(0.25 * (t[0] + t[1]));
+	  else
+	    term = LOG(0.25 * (t[0] + t[1])) + ((ex1[i] + ex2[i]) * LOG(minlikelihood));	  
+	  
+	  sum += wptr[i] * term;
+	}                      	
+    }
+
+  return sum;
+} 
+
+#else
+
+static double evaluateGTRGAMMA_GAPPED(int *ex1, int *ex2, int *wptr,
+				      double *x1_start, double *x2_start, 
+				      double *tipVector, 
+				      unsigned char *tipX1, const int n, double *diagptable, const boolean fastScaling,
+				      double *x1_gapColumn, double *x2_gapColumn, unsigned int *x1_gap, unsigned int *x2_gap)
+{
+  double   sum = 0.0, term;    
+  int     i, j, k;
+  double  *x1, *x2;             
+
+ 
+
+  if(tipX1)
+    {          	
+      for (i = 0; i < n; i++)
+	{
+
+	  x1 = &(tipVector[4 * tipX1[i]]);
+	  
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2 = x2_gapColumn;
+	  else
+	    x2 = &x2_start[16 * i];	 	  
+
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    for(k = 0; k < 4; k++)
+	      term += x1[k] * x2[j * 4 + k] * diagptable[j * 4 + k];	          	  	  	    	    	  
+	  
+	  if(fastScaling)
+	    term = LOG(0.25 * term);
+	  else
+	    term = LOG(0.25 * term) + ex2[i] * LOG(minlikelihood);	 
+	  
+	  sum += wptr[i] * term;
+	}     
+    }
+  else
+    {        
+      for (i = 0; i < n; i++) 
+	{	  	 	  	  
+	  if(x1_gap[i / 32] & mask32[i % 32])
+	    x1 = x1_gapColumn;
+	  else
+	    x1 = &x1_start[16 * i]; 	  	  
+	 	      
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2 = x2_gapColumn;
+	  else
+	    x2 = &x2_start[16 * i];
+	
+
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    for(k = 0; k < 4; k++)
+	      term += x1[j * 4 + k] * x2[j * 4 + k] * diagptable[j * 4 + k];
+	  
+	  if(fastScaling)
+	     term = LOG(0.25 * term);
+	  else
+	    term = LOG(0.25 * term) + (ex1[i] + ex2[i]) * LOG(minlikelihood);
+	  
+	  sum += wptr[i] * term;
+	}                      	
+    }
+
+  return sum;
+} 
+
+
+#endif
 
 static double evaluateGTRGAMMA(int *ex1, int *ex2, int *wptr,
 			       double *x1_start, double *x2_start, 
@@ -1342,7 +1897,10 @@ static double evaluateGTRGAMMA(int *ex1, int *ex2, int *wptr,
 			       unsigned char *tipX1, const int n, double *diagptable, const boolean fastScaling)
 {
   double   sum = 0.0, term;    
-  int     i, j, k;
+  int     i, j;
+#ifndef __SIM_SSE3  
+  int k;
+#endif
   double  *x1, *x2;             
 
  
@@ -1462,6 +2020,7 @@ static double evaluateGTRGAMMA(int *ex1, int *ex2, int *wptr,
 
   return sum;
 } 
+
 
 static double evaluateGTRGAMMA_FLOAT(int *ex1, int *ex2, int *wptr,
 				     float *x1_start, float *x2_start, 
@@ -1688,6 +2247,232 @@ static double evaluateGTRGAMMAPROT (int *ex1, int *ex2, int *wptr,
        
   return  sum;
 }
+
+
+static double evaluateGTRGAMMAPROT_GAPPED (int *ex1, int *ex2, int *wptr,
+					   double *x1, double *x2,  
+					   double *tipVector, 
+					   unsigned char *tipX1, int n, double *diagptable, const boolean fastScaling,
+					   double *x1_gapColumn, double *x2_gapColumn, unsigned int *x1_gap, unsigned int *x2_gap)					   
+{
+  double   sum = 0.0, term;        
+  int     i, j, l;   
+  double  
+    *left, 
+    *right,
+    *x1v,
+    *x2v;              
+  
+  if(tipX1)
+    {               
+      for (i = 0; i < n; i++) 
+	{
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2v = x2_gapColumn;
+	  else
+	    x2v = &x2[80 * i];
+
+#ifdef __SIM_SSE3
+	  __m128d tv = _mm_setzero_pd();
+	  left = &(tipVector[20 * tipX1[i]]);	  	  
+	  
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      double *d = &diagptable[j * 20];
+	      right = &(x2v[20 * j]);
+	      for(l = 0; l < 20; l+=2)
+		{
+		  __m128d mul = _mm_mul_pd(_mm_load_pd(&left[l]), _mm_load_pd(&right[l]));
+		  tv = _mm_add_pd(tv, _mm_mul_pd(mul, _mm_load_pd(&d[l])));		   
+		}		 		
+	    }
+	  tv = _mm_hadd_pd(tv, tv);
+	  _mm_storel_pd(&term, tv);
+	  
+#else
+	  left = &(tipVector[20 * tipX1[i]]);	  	  
+	  
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      right = &(x2v[20 * j]);
+	      for(l = 0; l < 20; l++)
+		term += left[l] * right[l] * diagptable[j * 20 + l];	      
+	    }	  
+#endif	 
+	  if(fastScaling)
+	    term = LOG(0.25 * term);
+	  else
+	    term = LOG(0.25 * term) + (ex2[i] * LOG(minlikelihood));	   
+	  
+	  sum += wptr[i] * term;
+	}    	        
+    }              
+  else
+    {
+      for (i = 0; i < n; i++) 
+	{
+	  if(x1_gap[i / 32] & mask32[i % 32])
+	    x1v = x1_gapColumn;
+	  else
+	    x1v = &x1[80 * i];
+
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2v = x2_gapColumn;
+	  else
+	    x2v = &x2[80 * i];
+	  	 	             
+#ifdef __SIM_SSE3
+	  __m128d tv = _mm_setzero_pd();	 	  	  
+	      
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      double *d = &diagptable[j * 20];
+	      left  = &(x1v[20 * j]);
+	      right = &(x2v[20 * j]);
+	      
+	      for(l = 0; l < 20; l+=2)
+		{
+		  __m128d mul = _mm_mul_pd(_mm_load_pd(&left[l]), _mm_load_pd(&right[l]));
+		  tv = _mm_add_pd(tv, _mm_mul_pd(mul, _mm_load_pd(&d[l])));		   
+		}		 		
+	    }
+	  tv = _mm_hadd_pd(tv, tv);
+	  _mm_storel_pd(&term, tv);	  
+#else
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      left  = &(x1v[20 * j]);
+	      right = &(x2v[20 * j]);	    
+	      
+	      for(l = 0; l < 20; l++)
+		term += left[l] * right[l] * diagptable[j * 20 + l];	
+	    }
+#endif
+	  
+	  if(fastScaling)
+	    term = LOG(0.25 * term);
+	  else
+	    term = LOG(0.25 * term) + ((ex1[i] + ex2[i])*LOG(minlikelihood));
+	  
+	  sum += wptr[i] * term;
+	}         
+    }
+       
+  return  sum;
+}
+
+static double evaluateGTRGAMMAPROT_GAPPED_SAVE (int *ex1, int *ex2, int *wptr,
+						double *x1, double *x2,  
+						double *tipVector, 
+						unsigned char *tipX1, int n, double *diagptable, const boolean fastScaling,
+						double *x1_gapColumn, double *x2_gapColumn, unsigned int *x1_gap, unsigned int *x2_gap)					   
+{
+  double   sum = 0.0, term;        
+  int     i, j, l;   
+  double  
+    *left, 
+    *right,
+    *x1v,
+    *x2v;              
+  
+  if(tipX1)
+    {               
+      for (i = 0; i < n; i++) 
+	{
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2v = x2_gapColumn;
+	  else
+	    x2v = &x2[80 * i];
+
+#ifdef __SIM_SSE3
+	  __m128d tv = _mm_setzero_pd();
+	  left = &(tipVector[20 * tipX1[i]]);	  	  
+	  
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      double *d = &diagptable[j * 20];
+	      right = &(x2v[20 * j]);
+	      for(l = 0; l < 20; l+=2)
+		{
+		  __m128d mul = _mm_mul_pd(_mm_load_pd(&left[l]), _mm_load_pd(&right[l]));
+		  tv = _mm_add_pd(tv, _mm_mul_pd(mul, _mm_load_pd(&d[l])));		   
+		}		 		
+	    }
+	  tv = _mm_hadd_pd(tv, tv);
+	  _mm_storel_pd(&term, tv);
+	  
+#else
+	  left = &(tipVector[20 * tipX1[i]]);	  	  
+	  
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      right = &(x2v[20 * j]);
+	      for(l = 0; l < 20; l++)
+		term += left[l] * right[l] * diagptable[j * 20 + l];	      
+	    }	  
+#endif	 
+	  if(fastScaling)
+	    term = LOG(0.25 * term);
+	  else
+	    term = LOG(0.25 * term) + (ex2[i] * LOG(minlikelihood));	   
+	  
+	  sum += wptr[i] * term;
+	}    	        
+    }              
+  else
+    {
+      for (i = 0; i < n; i++) 
+	{
+	  if(x1_gap[i / 32] & mask32[i % 32])
+	    x1v = x1_gapColumn;
+	  else
+	    x1v = &x1[80 * i];
+
+	  if(x2_gap[i / 32] & mask32[i % 32])
+	    x2v = x2_gapColumn;
+	  else
+	    x2v = &x2[80 * i];
+	  	 	             
+#ifdef __SIM_SSE3
+	  __m128d tv = _mm_setzero_pd();	 	  	  
+	      
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      double *d = &diagptable[j * 20];
+	      left  = &(x1v[20 * j]);
+	      right = &(x2v[20 * j]);
+	      
+	      for(l = 0; l < 20; l+=2)
+		{
+		  __m128d mul = _mm_mul_pd(_mm_load_pd(&left[l]), _mm_load_pd(&right[l]));
+		  tv = _mm_add_pd(tv, _mm_mul_pd(mul, _mm_load_pd(&d[l])));		   
+		}		 		
+	    }
+	  tv = _mm_hadd_pd(tv, tv);
+	  _mm_storel_pd(&term, tv);	  
+#else
+	  for(j = 0, term = 0.0; j < 4; j++)
+	    {
+	      left  = &(x1v[20 * j]);
+	      right = &(x2v[20 * j]);	    
+	      
+	      for(l = 0; l < 20; l++)
+		term += left[l] * right[l] * diagptable[j * 20 + l];	
+	    }
+#endif
+	  
+	  if(fastScaling)
+	    term = LOG(0.25 * term);
+	  else
+	    term = LOG(0.25 * term) + ((ex1[i] + ex2[i])*LOG(minlikelihood));
+	  
+	  sum += wptr[i] * term;
+	}         
+    }
+       
+  return  sum;
+}
+
 
 static double evaluateGTRGAMMAPROT_FLOAT (int *ex1, int *ex2, int *wptr,
 					  float *x1, float *x2,  
@@ -2258,14 +3043,15 @@ static double evaluateGTRGAMMASECONDARYINVAR_7 (int *ex1, int *ex2, int *wptr, i
 double evaluateIterative(tree *tr,  boolean writeVector)
 {
   double 
-    result = 0.0;  
-  int pNumber, qNumber, model;
-  double *pz;
+    *pz = tr->td[0].ti[0].qz,
+    result = 0.0;   
 
-  pNumber = tr->td[0].ti[0].pNumber;
-  qNumber = tr->td[0].ti[0].qNumber;
-  pz      = tr->td[0].ti[0].qz;
-
+  int 
+    rateHet = tr->discreteRateCategories,
+    pNumber = tr->td[0].ti[0].pNumber, 
+    qNumber = tr->td[0].ti[0].qNumber, 
+    model;
+ 
   newviewIterative(tr); 
 
   if(writeVector)
@@ -2281,23 +3067,27 @@ double evaluateIterative(tree *tr,  boolean writeVector)
 	  
 	  double 
 	    z, 
-	    partitionLikelihood, 
+	    partitionLikelihood = 0.0, 
 	    *_vector;
 	  
 	  int    
 	    *ex1 = (int*)NULL, 
 	    *ex2 = (int*)NULL;
+	  unsigned int
+	    *x1_gap = (unsigned int*)NULL,
+	    *x2_gap = (unsigned int*)NULL;
 
 	  double 
 	    *x1_start   = (double*)NULL, 
 	    *x2_start   = (double*)NULL,
-	    *diagptable = (double*)NULL;
+	    *diagptable = (double*)NULL,
+	    *x1_gapColumn = (double*)NULL,
+	    *x2_gapColumn = (double*)NULL;;
 
 	  float 
 	    *x1_start_FLOAT   = (float*)NULL, 
 	    *x2_start_FLOAT   = (float*)NULL,	  
 	    *diagptable_FLOAT = (float*)NULL;
-
 
 	  unsigned char 
 	    *tip = (unsigned char*)NULL;
@@ -2325,7 +3115,13 @@ double evaluateIterative(tree *tr,  boolean writeVector)
 
 		  if(!tr->useFastScaling)
 		    ex2      = tr->partitionData[model].expVector[pNumber - tr->mxtips - 1];
-		  
+
+		  if(tr->useGappedImplementation || tr->saveMemory)
+		    {
+		      x2_gap = &(tr->partitionData[model].gapVector[pNumber * tr->partitionData[model].gapVectorLength]);
+		      x2_gapColumn   = &tr->partitionData[model].gapColumn[(pNumber - tr->mxtips - 1) * states * rateHet];
+		    }
+
 		  tip = tr->partitionData[model].yVector[qNumber];	 	      
 		}           
 	      else
@@ -2336,13 +3132,27 @@ double evaluateIterative(tree *tr,  boolean writeVector)
 		    x2_start_FLOAT = tr->partitionData[model].xVector_FLOAT[qNumber - tr->mxtips - 1];
 
 		  if(!tr->useFastScaling)
-		    ex2      = tr->partitionData[model].expVector[qNumber - tr->mxtips - 1];	 
+		    ex2      = tr->partitionData[model].expVector[qNumber - tr->mxtips - 1];
+
+		  if(tr->useGappedImplementation || tr->saveMemory)
+		    {
+		      x2_gap = &(tr->partitionData[model].gapVector[qNumber * tr->partitionData[model].gapVectorLength]);
+		      x2_gapColumn   = &tr->partitionData[model].gapColumn[(qNumber - tr->mxtips - 1) * states * rateHet];
+		    }
 		  
 		  tip = tr->partitionData[model].yVector[pNumber];
 		}
 	    }
 	  else
 	    {  
+	      if(tr->useGappedImplementation || tr->saveMemory)
+	      {
+		x1_gap = &(tr->partitionData[model].gapVector[pNumber * tr->partitionData[model].gapVectorLength]);
+		x2_gap = &(tr->partitionData[model].gapVector[qNumber * tr->partitionData[model].gapVectorLength]);
+		x1_gapColumn   = &tr->partitionData[model].gapColumn[(pNumber - tr->mxtips - 1) * states * rateHet];
+		x2_gapColumn   = &tr->partitionData[model].gapColumn[(qNumber - tr->mxtips - 1) * states * rateHet];
+	      }
+
 	      if(!tr->useFloat)               
 		{
 		  x1_start = tr->partitionData[model].xVector[pNumber - tr->mxtips - 1];
@@ -2386,10 +3196,16 @@ double evaluateIterative(tree *tr,  boolean writeVector)
 		case GAMMA:
 		  {
 		    calcDiagptableFlex(z, 4, tr->partitionData[model].gammaRates, tr->partitionData[model].EIGN, diagptable, states);
-		    
-		    partitionLikelihood = evaluateGammaFlex(ex1, ex2, tr->partitionData[model].wgt,
-							    x1_start, x2_start, tr->partitionData[model].tipVector,
-							    tip, width, diagptable, _vector, writeVector, tr->useFastScaling, states);		   
+		     
+		    if(tr->useGappedImplementation)
+		      partitionLikelihood = evaluateGammaFlex_GAPPED(ex1, ex2, tr->partitionData[model].wgt,
+								     x1_start, x2_start, tr->partitionData[model].tipVector,
+								     tip, width, diagptable, _vector, writeVector, tr->useFastScaling, states,
+								     x1_gapColumn, x2_gapColumn, x1_gap, x2_gap); 
+		    else
+		      partitionLikelihood = evaluateGammaFlex(ex1, ex2, tr->partitionData[model].wgt,
+							      x1_start, x2_start, tr->partitionData[model].tipVector,
+							      tip, width, diagptable, _vector, writeVector, tr->useFastScaling, states);		   
 		  }
 		  break;
 		case GAMMA_I:		  	    
@@ -2481,10 +3297,25 @@ double evaluateIterative(tree *tr,  boolean writeVector)
 		      else
 			{			     	     		      
 			  calcDiagptable(z, DNA_DATA, 4, tr->partitionData[model].gammaRates, tr->partitionData[model].EIGN, diagptable);		    		    
-			  
-			  partitionLikelihood = evaluateGTRGAMMA(ex1, ex2, tr->partitionData[model].wgt,
-								 x1_start, x2_start, tr->partitionData[model].tipVector,
-								 tip, width, diagptable, tr->useFastScaling); 		    
+#ifdef __SIM_SSE3
+			  if(tr->saveMemory)
+			    partitionLikelihood = evaluateGTRGAMMA_GAPPED_SAVE(ex1, ex2, tr->partitionData[model].wgt,
+									       x1_start, x2_start, tr->partitionData[model].tipVector,
+									       tip, width, diagptable, tr->useFastScaling,
+									       x1_gapColumn, x2_gapColumn, x1_gap, x2_gap);
+			  else
+#endif
+			    {
+			      if(tr->useGappedImplementation)
+				partitionLikelihood = evaluateGTRGAMMA_GAPPED(ex1, ex2, tr->partitionData[model].wgt,
+									      x1_start, x2_start, tr->partitionData[model].tipVector,
+									      tip, width, diagptable, tr->useFastScaling,
+									      x1_gapColumn, x2_gapColumn, x1_gap, x2_gap); 
+			      else
+				partitionLikelihood = evaluateGTRGAMMA(ex1, ex2, tr->partitionData[model].wgt,
+								       x1_start, x2_start, tr->partitionData[model].tipVector,
+								       tip, width, diagptable, tr->useFastScaling); 		
+			    }
 			}
 		      break; 
 		    case GAMMA_I:
@@ -2536,10 +3367,25 @@ double evaluateIterative(tree *tr,  boolean writeVector)
 		      else
 			{
 			  calcDiagptable(z, AA_DATA, 4, tr->partitionData[model].gammaRates, tr->partitionData[model].EIGN, diagptable);
-			  
-			  partitionLikelihood = evaluateGTRGAMMAPROT(ex1, ex2, tr->partitionData[model].wgt,
-								     x1_start, x2_start, tr->partitionData[model].tipVector,
-								     tip, width, diagptable, tr->useFastScaling);
+#ifdef __SIM_SSE3
+			  if(tr->saveMemory)
+			    partitionLikelihood = evaluateGTRGAMMAPROT_GAPPED_SAVE(ex1, ex2, tr->partitionData[model].wgt,
+										   x1_start, x2_start, tr->partitionData[model].tipVector,
+										   tip, width, diagptable, tr->useFastScaling,
+										   x1_gapColumn, x2_gapColumn, x1_gap, x2_gap);
+			  else
+#endif
+			    {
+			      if(tr->useGappedImplementation)
+				partitionLikelihood = evaluateGTRGAMMAPROT_GAPPED(ex1, ex2, tr->partitionData[model].wgt,
+										  x1_start, x2_start, tr->partitionData[model].tipVector,
+										  tip, width, diagptable, tr->useFastScaling,
+										  x1_gapColumn, x2_gapColumn, x1_gap, x2_gap);
+			      else
+				partitionLikelihood = evaluateGTRGAMMAPROT(ex1, ex2, tr->partitionData[model].wgt,
+									   x1_start, x2_start, tr->partitionData[model].tipVector,
+									   tip, width, diagptable, tr->useFastScaling);
+			    }
 			}
 		      break;
 		    case GAMMA_I:		  	    
@@ -2706,13 +3552,23 @@ double evaluateIterative(tree *tr,  boolean writeVector)
 		}
 	    }	
 
-	  
-	  if(tr->useFastScaling)
+	  if(width > 0)
 	    {
-	      if(tr->useFloat)
-		partitionLikelihood += (tr->partitionData[model].globalScaler[pNumber] + tr->partitionData[model].globalScaler[qNumber]) * LOG(minlikelihood_FLOAT);
-	      else
-		partitionLikelihood += (tr->partitionData[model].globalScaler[pNumber] + tr->partitionData[model].globalScaler[qNumber]) * LOG(minlikelihood);
+	      assert(partitionLikelihood < 0.0);
+	  
+	      if(tr->useFastScaling)
+		{	     	      
+		  if(tr->useFloat)
+		    partitionLikelihood += (tr->partitionData[model].globalScaler[pNumber] + tr->partitionData[model].globalScaler[qNumber]) * LOG(minlikelihood_FLOAT);
+		  else
+		    {
+#ifdef _SECURE_SCALING
+		      partitionLikelihood += (tr->partitionData[model].globalScalerDouble[pNumber] + tr->partitionData[model].globalScalerDouble[qNumber]);
+#else		      		      
+		      partitionLikelihood += (tr->partitionData[model].globalScaler[pNumber] + tr->partitionData[model].globalScaler[qNumber]) * LOG(minlikelihood);
+#endif
+		    }
+		}
 	    }
 	  
 	  result += partitionLikelihood;	  
@@ -2908,10 +3764,12 @@ double evaluateIterativeMulti(tree *tr,  boolean writeVector)
 		  else
 		    {		     		      
 		      calcDiagptable(z, DNA_DATA, 4, tr->partitionData[model].gammaRates, tr->partitionData[model].EIGN, diagptable);		    		    
-		      
-		      partitionLikelihood = evaluateGTRGAMMA(ex1, ex2, tr->partitionData[model].wgt,
-							     x1_start, x2_start, tr->partitionData[model].tipVector,
-							     tip, width, diagptable, tr->useFastScaling); 		      
+		      if(tr->useGappedImplementation || tr->saveMemory)
+			assert(0);
+		      else		      
+			partitionLikelihood = evaluateGTRGAMMA(ex1, ex2, tr->partitionData[model].wgt,
+							       x1_start, x2_start, tr->partitionData[model].tipVector,
+							       tip, width, diagptable, tr->useFastScaling); 		      
 		    }
 		  break; 
 		case GAMMA_I:
@@ -3092,7 +3950,13 @@ double evaluateIterativeMulti(tree *tr,  boolean writeVector)
 	      if(tr->useFloat)
 		partitionLikelihood += (tr->partitionData[model].globalScaler[pNumber] + tr->partitionData[model].globalScaler[qNumber]) * LOG(minlikelihood_FLOAT);
 	      else
-		partitionLikelihood += (tr->partitionData[model].globalScaler[pNumber] + tr->partitionData[model].globalScaler[qNumber]) * LOG(minlikelihood);
+		{
+#ifdef _SECURE_SCALING
+		  partitionLikelihood += (tr->partitionData[model].globalScalerDouble[pNumber] + tr->partitionData[model].globalScalerDouble[qNumber]);
+#else
+		  partitionLikelihood += (tr->partitionData[model].globalScaler[pNumber] + tr->partitionData[model].globalScaler[qNumber]) * LOG(minlikelihood);
+#endif
+		}
 	    }
 	  
 	  result += partitionLikelihood;	  
@@ -3460,8 +4324,7 @@ void determineFullTraversalMulti(nodeptr p, tree *tr)
 double evalCL(tree *tr, double *x2, int *_ex2, unsigned char *_tip, double *pz)
 {
   double 
-    *x1_start = (double*)NULL,
-    *_vector = (double*)NULL,
+    *x1_start = (double*)NULL,   
     result = 0.0;
 
   int 
@@ -3470,8 +4333,7 @@ double evalCL(tree *tr, double *x2, int *_ex2, unsigned char *_tip, double *pz)
     columnCounter, 
     offsetCounter;
 
-  boolean 
-    writeVector = FALSE;  
+    
     
   unsigned char 
     *tip = (unsigned char*)NULL;

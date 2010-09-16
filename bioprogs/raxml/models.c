@@ -75,8 +75,14 @@ static void smoothFreqs(const int n, double *pfreqs, double *dst, pInfo *partiti
     loopCounter = 0;  
   
 
-  for(l = 0; l < n; l++)
+  /*
+    for(l = 0; l < n; l++)
     if(pfreqs[l] < FREQ_MIN)
+      countScale++;
+  */
+
+  for(l = 0; l < n; l++)
+    if(pfreqs[l] == 0.0)
       countScale++;
 
   if(countScale > 0)
@@ -171,7 +177,7 @@ static void genericBaseFrequencies(tree *tr, const int numFreqs, rawdata *rdta, 
 	      
       for (i = 0; i < rdta->numsp; i++) 
 	{		 
-	  yptr =  &(rdta->y0[i * tr->originalCrunchedLength]);
+	  yptr =  &(rdta->y0[((size_t)i) * ((size_t)tr->originalCrunchedLength)]);
 	  
 	  for(j = lower; j < upper; j++) 
 	    {
@@ -216,13 +222,33 @@ static void genericBaseFrequencies(tree *tr, const int numFreqs, rawdata *rdta, 
     smoothFreqs(numFreqs, pfreqs,  tr->partitionData[model].frequencies, &(tr->partitionData[model]));	   
   else    
     {
+      boolean 
+	zeroFreq = FALSE;
+
+      char 
+	typeOfData[1024];
+
+      getDataTypeString(tr, model, typeOfData);  
+
       for(l = 0; l < numFreqs; l++)
 	{
-	  assert(pfreqs[l] >= 0.0);
+	  if(pfreqs[l] == 0.0)
+	    {
+	      printBothOpen("Empirical base frequency for state number %d is equal to zero in %s data partition %s\n", l, typeOfData, tr->partitionData[model].partitionName);
+	      printBothOpen("Since this is probably not what you want to do, RAxML will soon exit.\n\n");
+	      zeroFreq = TRUE;
+	    }
+	}
+
+      if(zeroFreq)
+	exit(-1);
+
+      for(l = 0; l < numFreqs; l++)
+	{
+	  assert(pfreqs[l] > 0.0);
 	  tr->partitionData[model].frequencies[l] = pfreqs[l];
 	}     
-    }
-  
+    }  
  
 }
 
@@ -1556,7 +1582,10 @@ static void initGeneric(const int n, const unsigned int *valueVector, int valueV
     }                                    
   
   for(l = 1; l < n; l++)
-    ext_EIGN[(l - 1)] = EIGN[l]; 
+    {
+      ext_EIGN[(l - 1)] = EIGN[l]; 
+      assert( ext_EIGN[(l - 1)] > 0.0);
+    }
   
   eptr = EV;
   
@@ -1577,9 +1606,7 @@ static void initGeneric(const int n, const unsigned int *valueVector, int valueV
       unsigned int value = valueVector[i];
       
       for(j = 0; j < n; j++)
-	tipVector[i * n + j]     = 0;	 
-      
-     
+	tipVector[i * n + j]     = 0;	            
 
       if(value > 0)
 	{		      
@@ -1595,11 +1622,24 @@ static void initGeneric(const int n, const unsigned int *valueVector, int valueV
 	}     
     }
 
+  for(i = 0; i < valueVectorLength; i++)
+    {
+       for(j = 0; j < n; j++)
+	 if(tipVector[i * n + j] > MAX_TIP_EV)
+	   tipVector[i * n + j] = MAX_TIP_EV;
+    }
+
+
   if(useFloat)
     {
       for(i=0; i < valueVectorLength; i++)
-	for(j = 0; j < n; j++)
-	  tipVector_FLOAT[i * n + j] = (float)tipVector[i * n + j];	 
+	{
+	  for(j = 0; j < n; j++)
+	    {
+	      tipVector_FLOAT[i * n + j] = (float)tipVector[i * n + j];	 
+	      assert(tipVector_FLOAT[i * n + j] <= MAX_TIP_EV);
+	    }
+	}
     }
 
   for(i = 0; i < n; i++)
