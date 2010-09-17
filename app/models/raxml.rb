@@ -7,9 +7,9 @@ require 'raxml_queryfile_parser'
 
 class Raxml < ActiveRecord::Base
 
-
   ### Standard validator functions
   validates_presence_of :alifile, :treefile
+  validates_presence_of :queryfile, :parfile, :if => :mga_selected?
   validates_format_of :email, :with => /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i , :on => :save, :message => "Invalid address", :allow_blank => true
   validates_numericality_of :b_random_seed,  :only_integer => true, :greater_than => 0,  :message => "Input must be an integer and greater than 0 and less than 101"
   validates_numericality_of :b_runs, :only_integer => true, :greater_than => 0, :less_than => 101, :message => "Input must be an integer and greater than 0 and less than 101"
@@ -29,6 +29,15 @@ class Raxml < ActiveRecord::Base
   ## checks if the "Upload ualigned query reads" otption has been checked 
   def queryfile_selected?
     if self.use_queryfile.eql?("T")
+      return true
+    else
+      return false
+    end
+  end
+
+  ## checks if we have a multi gene submission
+  def mga_selected?
+    if self.mga.eql?("T")
       return true
     else
       return false
@@ -55,8 +64,8 @@ class Raxml < ActiveRecord::Base
           self.treefile = treefile_path
       end
 
-      if self.query.eql?("PAR") && !(self.parfile.eql?("") )
-        p = RaxmlPartitionfileParser.new(self.parfile,f.ali_length)
+      if (self.query.eql?("PAR") && !(self.parfile.eql?("") )) || self.mga.eql?("T")
+        p = RaxmlPartitionfileParser.new(self.parfile,a.ali_length)
         errors.add(:parfile, p.error) if !(p.valid_format)
         if p.valid_format
           parfile_path =  jobdir+"partition_file"
@@ -64,7 +73,7 @@ class Raxml < ActiveRecord::Base
           self.parfile = parfile_path
         end
       end
-      if self.use_queryfile.eql?("T") && !(self.queryfile.eql?(""))
+      if (self.use_queryfile.eql?("T") && !(self.queryfile.eql?(""))) || self.mga.eql?("T")
         q = RaxmlQueryfileParser.new(self.queryfile)
         errors.add(:queryfile, q.error) if !(q.valid_format) 
         if q.valid_format
@@ -78,6 +87,7 @@ class Raxml < ActiveRecord::Base
 
   ## Saves the Input files on the job directory on disk 
   def saveOnDisk(data,path)
+    puts data
     File.open(path,'wb'){|f| f.write(data.join)}
   end
 
@@ -91,7 +101,7 @@ class Raxml < ActiveRecord::Base
     if !(self.treefile.nil?)
       opts["-t"] = self.treefile
     end
-    if self.query.eql?("PAR")
+    if self.query.eql?("PAR") || self.mga.eql?("T")
       opts["-q"] = self.parfile
     end
     if self.use_heuristic.eql?("T")
@@ -113,6 +123,9 @@ class Raxml < ActiveRecord::Base
     end
     if self.use_clustering.eql?("T")
       opts["-useCl"] = self.use_clustering
+    end
+    if self.mga.eql?("T")
+      opts["-mga"] = ""
     end
     
     # Build shell file  

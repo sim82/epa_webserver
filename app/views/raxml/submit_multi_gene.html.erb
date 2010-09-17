@@ -1,22 +1,22 @@
 <h1>Submit job</h1>
 
 <%= error_messages_for :raxml, :header_message => "There were #{@raxml.errors.size} errors in your input!" %>
-
-<% form_tag({:action => 'submitJob'},:multipart => true) do %>
-
 <!-- Single or multi gene files -->
 <div class="clearfix">
   <div id="modusButton">
-    <div id="modusSelected"> <li>Single Gene</li>
+    <div id="modusUnselected"> <li><%= link_to "Single Gene", :action => 'submit_single_gene'%></li>
     </div>
   </div>
   <div id="modusButton">
-    <div id="modusUnselected"><li><%= link_to "Multi Gene", :action => 'submit_multi_gene'%></li>
+    <div id="modusSelected"><li>Multi Gene</li>
     </div>
   </div>
-
+  
 </div>
-
+<% form_tag({:action => 'submitJob'},:multipart => true) do %>
+<div id="flag">
+  <input type="text" name="modus" value="mga" />
+</div>
 <!-- upload alignmentfile -->
 <div class="clearfix" id="block">
   <div id="first_upload">
@@ -29,12 +29,12 @@
         <div id="help_header">
           Alignmentfile:
         </div>
-        Upload a reference alignment with aligned query sequences in FASTA or PHYLIP format. If the query sequences are not aligned to the reference alignment, please check the <i>"Upload unaligned reads"</i> button below and upload the query reads separately.
+        Upload a multi gene reference alignment with aligned query sequences in FASTA or PHYLIP format. If the query sequences are not aligned to the reference alignment, please check the <i>"Upload unaligned reads"</i> button below and upload the query reads separately.
       </div>
     </p>
   </div>
   <!-- upload treefile -->
-  <div id ="second_upload">
+  <div id ="first_upload">
     <p><label for="tree_file">Select tree file</label> : 
       <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_treefile',event)" onmouseout="hideTooltip('help_treefile')"/>
       <div id="upload">
@@ -48,30 +48,42 @@
       </div>   
     </p>
   </div>
-</div>
-<!-- upload optional query reads -->
-<div id="block">
-  Upload unaligned query reads:   
-  <input id="qfile" name="qfile" type="checkbox" value="T" onclick="showHideCheckboxElements('qfile','queryfile')"/>
-
-  <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_unaligned',event)" onmouseout="hideTooltip('help_unaligned')"/>
-  <div class="help" id="help_unaligned" style="visibility:hidden" >
-    <div id="help_header">
-      Unaligned reads:
-    </div>
-    Check this box if you want the web-server to automatically align your reads to the full-length reference sequence alignment using hmmalign. In the case that you have a huge number of reads you may then also chose the option <i>"Cluster reads"</i>. The clustering is then only performed for consensus reads that are built using RC Edgar's uclust program   
+  <div id="first_upload">
+    <p><label for="par_file">Select multi gene partition file</label> : 
+      <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_parfile',event)" onmouseout="hideTooltip('help_parfile')"/>
+      <div id="upload">
+        <%= file_field 'raxml', 'parfile' %>
+      </div>
+      <div class="help" id="help_parfile" style="visibility:hidden" >
+        <div id="help_header">
+          Multi Gene Partition File:
+        </div>
+        Description here.
+      </div>   
+    </p>
   </div>
-
-  <div class="optionLevel1"  id="queryfile" style="display:none">
-    <p><label for="raxml_readfile">Select query file</label> : 
+  <!-- upload query reads file -->
+  <div id ="second_upload">    <p><label for="query_file">Select query reads file</label> :  
+      <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_queryfile',event)" onmouseout="hideTooltip('help_queryfile')"/>
       <div id="upload">
         <%= file_field 'raxml', 'queryfile' %>
       </div>
+      <div class="help" id="help_queryfile" style="visibility:hidden" >
+        <div id="help_header">
+          Query Reads File:
+        </div>
+        Description here.
+      </div>  
+      <div >Cluster reads <%= check_box_tag "cluster", "T"%><img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_cluster',event)" onmouseout="hideTooltip('help_cluster')"/></div>
+      <div class="help" id="help_cluster" style="visibility:hidden" >
+        <div id="help_header">
+          Clustering:
+        </div>
+        Cluster the uploaded reads using RC Edgar's uclust program. Only the consensus sequences are then placed in the reference tree.    
+      </div>
     </p>
-    <div class="optionLevel1" >Cluster reads <%= check_box_tag "cluster", "T"%></div>
   </div>
-</div>
-
+ </div>
 <!-- Select query type -->
 <div class="clearfix"  id="block">
   <div id="query_type">
@@ -81,13 +93,12 @@
       
       <input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='block'; document.getElementById('PAR').style.display='none'"/>AA
       
-      <input  id="query_PAR" name="query" type="radio" value="PAR"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='none'; document.getElementById('PAR').style.display='block'"/>PARTIONED 
       <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_input',event)" onmouseout="hideTooltip('help_input')"/>
       <div class="help" id="help_input" style="visibility:hidden" >
         <div id="help_header">
           Query type:
         </div>
-        Select the type of data in your alignment, this can be either DNA or Protein data or any combination of DNA, Protein, Secondary Structure, Multi-State, or Binary data partitions as specified by a standard RAxML partitioned model file (passed vie the -q option).
+        Select the type of data in your alignment, this can be either DNA or Protein data.
       </div>
 
     </p>
@@ -204,7 +215,7 @@
   <% end %>
 </div>
 <div id="reset_tag">
-  <% form_tag({:action => 'submit'},:multipart => true) do %>
+  <% form_tag({:action => 'submit_multi_gene'},:multipart => true) do %>
   <%= submit_tag "Reset" %>
   <% end%>
 </div>

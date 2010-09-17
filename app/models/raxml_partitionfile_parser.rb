@@ -19,7 +19,7 @@ class RaxmlPartitionfileParser
     @data.each do |line|
       if line =~ /^\s*$/
         
-      elsif  line =~ /^[A-Z]+,\s+\w+\s+=(\s+\d+-\d+,)*(\s+\d+-\d+)$/ ||  line =~ /^[A-Z]+,\s+\w+\s+=(\s+\d+-\d+\\\d+,)*(\s+\d+-\d+\\\d+)$/
+      elsif  line =~ /^[A-Z]+,\s+\S+\s+=(\s+\d+-\d+,)*(\s+\d+-\d+)$/ ||  line =~ /^[A-Z]+,\s+\S+\s+=(\s+\d+-\d+\\\d+,)*(\s+\d+-\d+\\\d+)$/
         digits = line.scan(/\d+\-\d+/)
         digits.each do |dig|
           if dig =~/(\d+)\-(\d+)/
@@ -29,7 +29,7 @@ class RaxmlPartitionfileParser
             end
           end
         end
-        if line =~ /^[A-Z]+,\s+\w+\s+=(\s+\d+-\d+,)*(\s+\d+-\d+)$/
+        if line =~ /^[A-Z]+,\s+\S+\s+=(\s+\d+-\d+,)*(\s+\d+-\d+)$/
           a = line.scan(/\d+\-\d+/)
           if line =~/(\d+)\-(\d+)/
             reads << [$1.to_i,$2.to_i]

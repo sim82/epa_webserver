@@ -1,9 +1,6 @@
 <h1>Submit job</h1>
 
 <%= error_messages_for :raxml, :header_message => "There were #{@raxml.errors.size} errors in your input!" %>
-
-<% form_tag({:action => 'submitJob'},:multipart => true) do %>
-
 <!-- Single or multi gene files -->
 <div class="clearfix">
   <div id="modusButton">
@@ -16,7 +13,10 @@
   </div>
 
 </div>
-
+<% form_tag({:action => 'submitJob'},:multipart => true) do %>
+<div id="flag">
+  <input type="text" name="modus" value="sga" />
+</div>
 <!-- upload alignmentfile -->
 <div class="clearfix" id="block">
   <div id="first_upload">
@@ -59,7 +59,7 @@
     <div id="help_header">
       Unaligned reads:
     </div>
-    Check this box if you want the web-server to automatically align your reads to the full-length reference sequence alignment using hmmalign. In the case that you have a huge number of reads you may then also chose the option <i>"Cluster reads"</i>. The clustering is then only performed for consensus reads that are built using RC Edgar's uclust program   
+    Check this box if you want the web-server to automatically align your reads to the full-length reference sequence alignment using hmmalign. In the case that you have a huge number of reads you may then also chose the option <i>"Cluster reads"</i>. The aligning is then only performed for consensus reads that are built using RC Edgar's uclust program   
   </div>
 
   <div class="optionLevel1"  id="queryfile" style="display:none">
@@ -204,7 +204,7 @@
   <% end %>
 </div>
 <div id="reset_tag">
-  <% form_tag({:action => 'submit'},:multipart => true) do %>
+  <% form_tag({:action => 'submit_single_gene'},:multipart => true) do %>
   <%= submit_tag "Reset" %>
   <% end%>
 </div>

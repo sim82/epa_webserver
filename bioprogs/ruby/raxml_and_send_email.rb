@@ -125,6 +125,10 @@ class RaxmlAndSendEmail
     alifile = @raxml_options["-s"]
     treefile = @raxml_options["-t"]
     partitionfile = @raxml_options["-q"]
+    puts partitionfile
+    puts alifile
+    puts treefile
+    puts @queryfile
     outname = @raxml_options["-n"]
     @raxml_options.delete("-q")
     id = @raxml_options["-n"]

@@ -110,6 +110,10 @@ a:hover{
     padding-right:2em;
 }
 
+#flag{
+    display:none;
+}
+
 #footer{
     text-align:center;
     clear:both;
@@ -150,6 +154,45 @@ a:hover{
 
 #middle_wrapper{
     background: url(/images/middle_background1.png) repeat-y;
+}
+
+#modusButton{
+    width:120px;
+    float:left;
+}
+
+#modusSelected{
+}
+
+#modusSelected li{
+    border: 1px solid black ;
+    background-color:#ffffff;
+    margin:0.2em;
+    list-style-type:none;
+    text-align:center; 
+    font-weight:bold;
+}
+
+#modusUnselected{
+}
+
+#modusUnselected li {
+    border: 1px solid #4988b5 ;
+    background-color:#ffffff;
+    margin:0.2em;
+    list-style-type:none;
+    text-align:center; 
+    font-weight:bold;
+}
+
+#modusUnselected li a{
+    display:block;
+}
+
+#modusUnselected li a:hover{
+    text-decoration:none;
+    color:#ffffff;
+    background-color: #4988b5;
 }
 
 #models{
