@@ -88,7 +88,7 @@ static inline void computeVectorGTRCATPROT(double *lVector, int *eVector, double
       e2[20] __attribute__ ((aligned (16))),
       d1[20] __attribute__ ((aligned (16))), 
       d2[20] __attribute__ ((aligned (16))), 
-      ump_x1, ump_x2, x1px2, lz1, lz2;  
+      lz1, lz2;  
     int l, k, scale;
      
     lz1 = qz * ki;            

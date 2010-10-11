@@ -58,11 +58,17 @@
 
 #endif
 
+#ifdef _USE_PTHREADS
+#include <pthread.h>
+#endif
+
 #ifdef _WAYNE_MPI
 #include <mpi.h>
 extern int processID;
 extern int processes;
 #endif
+
+#define _NEW_MRE
 
 extern FILE *INFILE;
 extern char run_id[128];
@@ -74,15 +80,17 @@ extern char resultFileName[1024];
 
 extern double masterTime;
 
-extern const int mask32[32];
+extern const unsigned int mask32[32];
 
 extern volatile branchInfo      **branchInfos;
 extern volatile int NumberOfThreads;
 extern volatile int NumberOfJobs;
 
-static void mre(hashtable *h, boolean icp, entry*** sbi, int* len, int which, int n, int vectorLength, boolean sortp);
 
-static entry *initEntry(void)
+static void mre(hashtable *h, boolean icp, entry*** sbi, int* len, int which, int n, unsigned int vectorLength, boolean sortp, tree *tr, boolean bootStopping);
+
+
+entry *initEntry(void)
 {
   entry *e = (entry*)malloc(sizeof(entry));
 
@@ -187,44 +195,7 @@ void freeHashTable(hashtable *h)
   free(h->table);
 }
 
-#ifdef DEVELOPMENT
-static void analyzeHashTable(hashtable *h)
-{
-  hashNumberType
-    i, 
-    entryCount     = 0,
-    maxChainLength = 0,
-    collisionCount = 0;
 
-  for(i = 0; i < h->tableSize; i++)
-    {
-      if(h->table[i] != NULL)
-	{
-	  entry *e = h->table[i];	
-	  hashNumberType count = 0;
-
-	  do
-	    {	   
-	      e = e->next;
-	      
-	      count++;
-	      entryCount++;
-	    }
-	  while(e != NULL);	  
-
-	  if(count > 1)
-	    {
-	      collisionCount++;
-	      if(count > maxChainLength)
-		maxChainLength = count;
-	    }
-	}
-
-    }
-
-  printf("Hash Table Stats: \n max chain: %u \n collisions: %u \n entries: %u\n", maxChainLength, collisionCount, entryCount);
-}
-#endif
 
 void cleanupHashTable(hashtable *h, int state)
 {
@@ -307,92 +278,13 @@ void cleanupHashTable(hashtable *h, int state)
 
 
 
-/*
-  #define NN 312
-  #define MM 156
-  #define MATRIX_A 0xB5026F5AA96619E9LLU
-  #define UM 0xFFFFFFFF80000000LLU 
-  #define LM 0x7FFFFFFFLLU 
-  
-  static uint64_t mt[NN]; 
-  static int mti=NN+1; 
-  
-  
-  static void init_genrand64(uint64_t seed)
-  {
-  mt[0] = seed;
-  for (mti=1; mti<NN; mti++) 
-  mt[mti] =  (6364136223846793005LLU * (mt[mti-1] ^ (mt[mti-1] >> 62)) + mti);
-  }  
-  
-  static void init_by_array64(uint64_t init_key[],
-  uint64_t key_length)
-  {
-  uint64_t i, j, k;
-  init_genrand64(19650218LLU);
-  i=1; j=0;
-  k = (NN>key_length ? NN : key_length);
-  for (; k; k--) {
-  mt[i] = (mt[i] ^ ((mt[i-1] ^ (mt[i-1] >> 62)) * 3935559000370003845LLU))
-  + init_key[j] + j;
-  i++; j++;
-  if (i>=NN) { mt[0] = mt[NN-1]; i=1; }
-  if (j>=key_length) j=0;
-  }
-  for (k=NN-1; k; k--) {
-  mt[i] = (mt[i] ^ ((mt[i-1] ^ (mt[i-1] >> 62)) * 2862933555777941757LLU))
-  - i;
-  i++;
-  if (i>=NN) { mt[0] = mt[NN-1]; i=1; }
-  }
-  
-  mt[0] = 1LLU << 63;
-  }
-  
-  
-  static uint64_t genrand64_int64(void)
-  {
-  int i;
-  uint64_t x;
-  static uint64_t mag01[2]={0LLU, MATRIX_A};
-  
-  if (mti >= NN) {
-  
-  
-  if (mti == NN+1) 
-  init_genrand64(5489LLU); 
-  
-  for (i=0;i<NN-MM;i++) {
-  x = (mt[i]&UM)|(mt[i+1]&LM);
-  mt[i] = mt[i+MM] ^ (x>>1) ^ mag01[(int)(x&1LLU)];
-  }
-  for (;i<NN-1;i++) {
-  x = (mt[i]&UM)|(mt[i+1]&LM);
-  mt[i] = mt[i+(MM-NN)] ^ (x>>1) ^ mag01[(int)(x&1LLU)];
-  }
-  x = (mt[NN-1]&UM)|(mt[0]&LM);
-  mt[NN-1] = mt[MM-1] ^ (x>>1) ^ mag01[(int)(x&1LLU)];
-  
-  mti = 0;
-  }
-  
-  x = mt[mti++];
-  
-  x ^= (x >> 29) & 0x5555555555555555LLU;
-  x ^= (x << 17) & 0x71D67FFFEDA60000LLU;
-  x ^= (x << 37) & 0xFFF7EEE000000000LLU;
-  x ^= (x >> 43);
-  
-  return x;
-  }
-*/
 
 
 
 
 
 
-unsigned int **initBitVector(tree *tr, int *vectorLength)
+unsigned int **initBitVector(tree *tr, unsigned int *vectorLength)
 {
   unsigned int **bitVectors = (unsigned int **)malloc(sizeof(unsigned int*) * 2 * tr->mxtips);
   int i;
@@ -426,7 +318,7 @@ void freeBitVectors(unsigned int **v, int n)
 
 
 
-static void newviewBipartitions(unsigned int **bitVectors, nodeptr p, int numsp, int vectorLength)
+static void newviewBipartitions(unsigned int **bitVectors, nodeptr p, int numsp, unsigned int vectorLength)
 {
   if(isTip(p->number, numsp))
     return;
@@ -438,7 +330,8 @@ static void newviewBipartitions(unsigned int **bitVectors, nodeptr p, int numsp,
       *vector = bitVectors[p->number],
       *left  = bitVectors[q->number],
       *right = bitVectors[r->number];
-    int i;           
+    unsigned 
+      int i;           
 
     while(!p->x)
       {	
@@ -491,7 +384,7 @@ static void newviewBipartitions(unsigned int **bitVectors, nodeptr p, int numsp,
   }     
 }
 
-static void insertHash(unsigned int *bitVector, hashtable *h, int vectorLength, int bipNumber, hashNumberType position)
+static void insertHash(unsigned int *bitVector, hashtable *h, unsigned int vectorLength, int bipNumber, hashNumberType position)
 {
   entry *e = initEntry();
 
@@ -516,7 +409,7 @@ static void insertHash(unsigned int *bitVector, hashtable *h, int vectorLength, 
 
 
 
-static int countHash(unsigned int *bitVector, hashtable *h, int vectorLength, hashNumberType position)
+static int countHash(unsigned int *bitVector, hashtable *h, unsigned int vectorLength, hashNumberType position)
 { 
   if(h->table[position] == NULL)         
     return -1;
@@ -525,7 +418,7 @@ static int countHash(unsigned int *bitVector, hashtable *h, int vectorLength, ha
 
     do
       {	 
-	int i;
+	unsigned int i;
 
 	for(i = 0; i < vectorLength; i++)
 	  if(bitVector[i] != e->bitVector[i])
@@ -542,7 +435,7 @@ static int countHash(unsigned int *bitVector, hashtable *h, int vectorLength, ha
 
 }
 
-static void insertHashAll(unsigned int *bitVector, hashtable *h, int vectorLength, int treeNumber,  hashNumberType position)
+static void insertHashAll(unsigned int *bitVector, hashtable *h, unsigned int vectorLength, int treeNumber,  hashNumberType position)
 {    
   if(h->table[position] != NULL)
     {
@@ -550,7 +443,7 @@ static void insertHashAll(unsigned int *bitVector, hashtable *h, int vectorLengt
 
       do
 	{	 
-	  int i;
+	  unsigned int i;
 	  
 	  for(i = 0; i < vectorLength; i++)
 	    if(bitVector[i] != e->bitVector[i])
@@ -611,7 +504,7 @@ static void insertHashAll(unsigned int *bitVector, hashtable *h, int vectorLengt
 
 
 
-static void insertHashBootstop(unsigned int *bitVector, hashtable *h, int vectorLength, int treeNumber, int treeVectorLength, hashNumberType position)
+static void insertHashBootstop(unsigned int *bitVector, hashtable *h, unsigned int vectorLength, int treeNumber, int treeVectorLength, hashNumberType position)
 {    
   if(h->table[position] != NULL)
     {
@@ -619,7 +512,7 @@ static void insertHashBootstop(unsigned int *bitVector, hashtable *h, int vector
 
       do
 	{	 
-	  int i;
+	  unsigned int i;
 	  
 	  for(i = 0; i < vectorLength; i++)
 	    if(bitVector[i] != e->bitVector[i])
@@ -674,7 +567,7 @@ static void insertHashBootstop(unsigned int *bitVector, hashtable *h, int vector
   h->entryCount =  h->entryCount + 1;
 }
 
-static void insertHashRF(unsigned int *bitVector, hashtable *h, int vectorLength, int treeNumber, int treeVectorLength, hashNumberType position, int support, 
+static void insertHashRF(unsigned int *bitVector, hashtable *h, unsigned int vectorLength, int treeNumber, int treeVectorLength, hashNumberType position, int support, 
 			 boolean computeWRF)
 {     
   if(h->table[position] != NULL)
@@ -683,7 +576,7 @@ static void insertHashRF(unsigned int *bitVector, hashtable *h, int vectorLength
 
       do
 	{	 
-	  int i;
+	  unsigned int i;
 	  
 	  for(i = 0; i < vectorLength; i++)
 	    if(bitVector[i] != e->bitVector[i])
@@ -761,7 +654,7 @@ static void insertHashRF(unsigned int *bitVector, hashtable *h, int vectorLength
 
 
 
-void bitVectorInitravSpecial(unsigned int **bitVectors, nodeptr p, int numsp, int vectorLength, hashtable *h, int treeNumber, int function, branchInfo *bInf, 
+void bitVectorInitravSpecial(unsigned int **bitVectors, nodeptr p, int numsp, unsigned int vectorLength, hashtable *h, int treeNumber, int function, branchInfo *bInf, 
 			     int *countBranches, int treeVectorLength, boolean traverseOnly, boolean computeWRF)
 {
   if(isTip(p->number, numsp))
@@ -879,130 +772,50 @@ static void linkBipartitions(nodeptr p, tree *tr, branchInfo *bInf, int *counter
 }
 
 
-void loadTreeFileToMemory(tree *tr, char *fileName, analdef *adef)
-{
-  FILE 
-    *treeFile;
-
-  long
-    readSize,
-    sizeCleaned,
-    size = 0,
-    i = 0;    
-
-  int         
-    numberOfTrees = 0,
-    numberOfTrees2 = 0;
-    
-  boolean
-    foundEnd;
-
-  char 
-    *buffer,
-    *treeBuffer,
-    **treeStarts;
-                
-
-  assert(tr->numberOfTrees == -1);
-  assert(!(tr->treeStarts));
-  assert(!(tr->treeBuffer));
-
-  treeFile = myfopen(fileName, "rb");           
-  
-  fseek(treeFile, 0, SEEK_END);
-  size = ftell(treeFile);  
-
-  treeBuffer = (char *)malloc((size+1) * sizeof(char));
-  treeBuffer[size] = 0; 
-
-  buffer = (char *)malloc((size+1) * sizeof(char));
-  buffer[size] = 0; 
-  
-  fseek(treeFile, 0, SEEK_SET);       
-  readSize = fread(buffer, sizeof(char), size, treeFile);  
-  assert(readSize == size);
-  
-  fclose(treeFile);
-
-  for(i = 0, sizeCleaned = 0, numberOfTrees = 0; i < size; i++)
-    {
-      char ch = buffer[i];
-      
-      /* remove all white chars */
-      
-      if(!(ch == ' ' || ch == '\n' || ch == '\t' || ch == '\r'))
-	treeBuffer[sizeCleaned++] = ch;
-
-      /* count trees */
-      
-      if(ch == ';')
-	numberOfTrees++;
-    }
-  
-  treeBuffer[sizeCleaned] = 0;
-
-  size = sizeCleaned;
-  
-  free(buffer); 	   	   
-      
-  if(!adef->allInOne)   
-    printBothOpen("\n\nFound %d trees in File %s\n\n", numberOfTrees, fileName);
-
-  treeStarts = (char **)malloc(numberOfTrees * sizeof(char *));
-       	
-  treeStarts[0] = &treeBuffer[0];      
-
-  for(i = 1, foundEnd = FALSE, numberOfTrees2 = 1; i < size; i++)
-    {
-      if(treeBuffer[i] == ';')
-	foundEnd = TRUE;
-      else
-	{
-	  if(foundEnd && treeBuffer[i] == '(')
-	    {
-	      treeStarts[numberOfTrees2++] = &treeBuffer[i];
-	      foundEnd = FALSE;
-	    }
-	}
-    }    
-                 
-  assert(numberOfTrees == numberOfTrees2);
-
-  tr->numberOfTrees = numberOfTrees;
-  tr->treeStarts = treeStarts;
-  tr->treeBuffer = treeBuffer;
-}
 
 
-void freeTreeFileInMemory(tree *tr)
-{
-  tr->numberOfTrees = -1;
-  free(tr->treeStarts);
-  tr->treeStarts = (char**)NULL;
-  free(tr->treeBuffer);
-  tr->treeBuffer = (char*)NULL;
-}
+
+
+
+
+
+
+
+
 
 static void readSingleTree(tree *tr, char *fileName, analdef *adef, boolean readBranches, boolean readNodeLabels, boolean completeTree)
-{
-  int 
-    position = 0;
+{ 
+  FILE 
+    *f = myfopen(fileName, "r");
 
-  loadTreeFileToMemory(tr, fileName, adef);
-  assert(tr->numberOfTrees == 1);
-  treeReadTopologyString(tr->treeStarts[0], tr, readBranches, readNodeLabels, &position, TRUE, adef, completeTree);
-  freeTreeFileInMemory(tr);
+  int 
+    ch,
+    trees = 0;
+
+  while((ch = fgetc(f)) != EOF)
+    if(ch == ';')
+      trees++;
+    
+  assert(trees == 1);
+
+  printBothOpen("\n\nFound 1 tree in File %s\n\n", fileName);
+
+  rewind(f);
+
+  treeReadLen(f, tr, readBranches, readNodeLabels, TRUE, adef, completeTree);
+  
+  fclose(f);
 }
 
 void calcBipartitions(tree *tr, analdef *adef, char *bestTreeFileName, char *bootStrapFileName)
 {  
   branchInfo 
     *bInf;
-  
+  unsigned int vLength;
+
   int 
     branchCounter = 0,
-    counter = 0,
-    vLength,
+    counter = 0,  
     numberOfTrees = 0,
     i;
 
@@ -1011,6 +824,9 @@ void calcBipartitions(tree *tr, analdef *adef, char *bestTreeFileName, char *boo
   
   hashtable *h = 
     initHashTable(tr->mxtips * 10);
+
+  FILE 
+    *treeFile; 
   
   readSingleTree(tr, bestTreeFileName, adef, FALSE, FALSE, TRUE);    
   
@@ -1020,47 +836,24 @@ void calcBipartitions(tree *tr, analdef *adef, char *bestTreeFileName, char *boo
  
   assert((int)h->entryCount == (tr->mxtips - 3));  
   assert(branchCounter == (tr->mxtips - 3));
-
-  loadTreeFileToMemory(tr, bootStrapFileName, adef);
-  numberOfTrees = tr->numberOfTrees;
-
-#ifdef _USE_PTHREADS              
-  tr->h = h;            
-      
-  NumberOfJobs = tr->numberOfTrees;
-    
- 
-  masterBarrier(THREAD_DRAW_BIPARTITIONS, tr);        
   
-    
-  for(i = 0; i < (tr->mxtips - 3); i++)
-    {
-      int k;
-      
-      bInf[i].support = 0;
-      
-      for(k = 0; k < NumberOfThreads; k++)
-	bInf[i].support += branchInfos[k][i].support;
-    }
-    
-  masterBarrier(THREAD_FREE_DRAW_BIPARTITIONS, tr);    
-#else  
+  treeFile = getNumberOfTrees(tr, bootStrapFileName, adef);
+
+  numberOfTrees = tr->numberOfTrees;
+  
   for(i = 0; i < numberOfTrees; i++)
     {                
       int 
-	bCount = 0,
-	position = 0;
-	  	 
-      treeReadTopologyString(tr->treeStarts[i], tr, FALSE, FALSE, &position, TRUE, adef, TRUE);     
+	bCount = 0;
+      
+      treeReadLen(treeFile, tr, FALSE, FALSE, TRUE, adef, TRUE);
       assert(tr->ntips == tr->mxtips);
-	 
+      
       bitVectorInitravSpecial(bitVectors, tr->nodep[1]->back, tr->mxtips, vLength, h, 0, DRAW_BIPARTITIONS_BEST, bInf, &bCount, 0, FALSE, FALSE);      
       assert(bCount == tr->mxtips - 3);      
-    }  
-#endif 
+    }     
   
-
-  freeTreeFileInMemory(tr);
+  fclose(treeFile);
    
   readSingleTree(tr, bestTreeFileName, adef, TRUE, FALSE, TRUE); 
    
@@ -1096,8 +889,13 @@ void compareBips(tree *tr, char *bootStrapFileName, analdef *adef)
     bipAll = 0,
     bipStop = 0;
   char bipFileName[1024];
-  FILE *outf; 
-  int vLength;
+  FILE 
+    *outf,
+    *treeFile;
+  
+  unsigned 
+    int vLength;
+  
   unsigned int **bitVectors = initBitVector(tr, &vLength);
   hashtable *h = initHashTable(tr->mxtips * 100);    
   unsigned long int c1 = 0;
@@ -1106,47 +904,44 @@ void compareBips(tree *tr, char *bootStrapFileName, analdef *adef)
 
   /*********************************************************************************************************/
   
-  loadTreeFileToMemory(tr, bootStrapFileName, adef);
-  
+  treeFile = getNumberOfTrees(tr, bootStrapFileName, adef);  
   numberOfTreesAll = tr->numberOfTrees;
               
   for(i = 0; i < numberOfTreesAll; i++)
     { 
       int 
-	bCounter = 0,
-	position = 0;
+	bCounter = 0;
       
-      treeReadTopologyString(tr->treeStarts[i], tr, FALSE, FALSE, &position, TRUE, adef, TRUE);                
+      treeReadLen(treeFile, tr, FALSE, FALSE, TRUE, adef, TRUE);                
       assert(tr->mxtips == tr->ntips); 
 
       bitVectorInitravSpecial(bitVectors, tr->nodep[1]->back, tr->mxtips, vLength, h, 0, BIPARTITIONS_ALL, (branchInfo*)NULL, &bCounter, 0, FALSE, FALSE);
       assert(bCounter == tr->mxtips - 3);      
     }
 	  
-  freeTreeFileInMemory(tr);
+  fclose(treeFile);
 
 
   /*********************************************************************************************************/   
 
-  loadTreeFileToMemory(tr, tree_file, adef);
+  treeFile = getNumberOfTrees(tr, tree_file, adef);
   
   numberOfTreesStop = tr->numberOfTrees;   
        
   for(i = 0; i < numberOfTreesStop; i++)
     {              
       int 
-	bCounter = 0,
-	position = 0;
+	bCounter = 0;
 
 
-      treeReadTopologyString(tr->treeStarts[i], tr, FALSE, FALSE, &position, TRUE, adef, TRUE);      
+      treeReadLen(treeFile, tr, FALSE, FALSE, TRUE, adef, TRUE);      
       assert(tr->mxtips == tr->ntips);
       
       bitVectorInitravSpecial(bitVectors, tr->nodep[1]->back, tr->mxtips, vLength, h, 1, BIPARTITIONS_ALL, (branchInfo*)NULL, &bCounter, 0, FALSE, FALSE);
       assert(bCounter == tr->mxtips - 3);     
     }
 	  
-  freeTreeFileInMemory(tr);  
+  fclose(treeFile);  
 
   /***************************************************************************************************/
       
@@ -1234,7 +1029,9 @@ void computeRF(tree *tr, char *bootStrapFileName, analdef *adef)
     *rfMat,
     *wrfMat,
     *wrf2Mat,
-    *presentList,
+    *presentList;
+
+  unsigned int
     vLength; 
 
   unsigned int 
@@ -1252,11 +1049,12 @@ void computeRF(tree *tr, char *bootStrapFileName, analdef *adef)
     avgWRF,
     avgWRF2;
 
-  FILE *outf;
+  FILE 
+    *outf,
+    *treeFile = getNumberOfTrees(tr, bootStrapFileName, adef);
 
   hashtable *h = (hashtable *)NULL;   
-
-  loadTreeFileToMemory(tr, bootStrapFileName, adef);
+  
   numberOfTrees = tr->numberOfTrees;
   
   h = initHashTable(tr->mxtips * 2 * numberOfTrees); 
@@ -1274,12 +1072,13 @@ void computeRF(tree *tr, char *bootStrapFileName, analdef *adef)
   for(i = 0; i < numberOfTrees; i++)
     { 
       int 
-	bCounter = 0,
-	position = 0,
+	bCounter = 0,      
 	lcount   = 0;
       
-      lcount = treeReadTopologyString(tr->treeStarts[i], tr, FALSE, TRUE, &position, TRUE, adef, TRUE); 
-            
+      lcount = treeReadLen(treeFile, tr, FALSE, TRUE, TRUE, adef, TRUE); 
+
+      
+      
       assert(tr->mxtips == tr->ntips); 
       
       if(i == 0)
@@ -1300,7 +1099,7 @@ void computeRF(tree *tr, char *bootStrapFileName, analdef *adef)
       assert(bCounter == tr->mxtips - 3);          
     }
 	  
-  freeTreeFileInMemory(tr);  
+  fclose(treeFile);  
 
   for(k = 0, entryCount = 0; k < h->tableSize; k++)	     
     {    
@@ -1677,7 +1476,7 @@ static double frequencyCriterion(int numberOfTrees, hashtable *h, int *countBett
 
 
 
-static double wcCriterion(int numberOfTrees, hashtable *h, int *countBetter, double *wrf_thresh_avg, double *wrf_avg, tree *tr, int vectorLength, int bootstopPermutations)
+static double wcCriterion(int numberOfTrees, hashtable *h, int *countBetter, double *wrf_thresh_avg, double *wrf_avg, tree *tr, unsigned int vectorLength, int bootstopPermutations)
 {
   int 
     k, 
@@ -1711,8 +1510,8 @@ static double wcCriterion(int numberOfTrees, hashtable *h, int *countBetter, dou
       unsigned int entryCount = 0;
       double halfOfConsideredBips = 0.0;
 
-      entry ** sortedByKeyA;
-      entry ** sortedByKeyB;
+      entry ** sortedByKeyA = (entry **)NULL;
+      entry ** sortedByKeyB = (entry **)NULL;
       int lenA, lenB;
       boolean ignoreCompatibilityP;
 
@@ -1791,8 +1590,8 @@ static double wcCriterion(int numberOfTrees, hashtable *h, int *countBetter, dou
 	    
 	 
 	 
-	  mre(h, ignoreCompatibilityP, &sortedByKeyA, &lenA, 0, tr->mxtips, vectorLength, TRUE);
-	  mre(h, ignoreCompatibilityP, &sortedByKeyB, &lenB, 1, tr->mxtips, vectorLength, TRUE);
+	  mre(h, ignoreCompatibilityP, &sortedByKeyA, &lenA, 0, tr->mxtips, vectorLength, TRUE, tr, TRUE);
+	  mre(h, ignoreCompatibilityP, &sortedByKeyB, &lenB, 1, tr->mxtips, vectorLength, TRUE, tr, TRUE);
 	  
 	   
 	  mcnt1 = lenA;
@@ -1892,19 +1691,17 @@ void computeBootStopOnly(tree *tr, char *bootStrapFileName, analdef *adef)
   int checkEvery;
   int treesAdded = 0;
   hashtable *h = initHashTable(tr->mxtips * FC_INIT * 10); 
-  int 
+  unsigned int 
     treeVectorLength, 
     vectorLength;
-  unsigned int **bitVectors = initBitVector(tr, &vectorLength);
-  
-  
+  unsigned int **bitVectors = initBitVector(tr, &vectorLength);   
+ 
 
-  double tt = 0.0, tc = 0.0;
+  FILE 
+    *treeFile = getNumberOfTrees(tr, bootStrapFileName, adef);
 
   assert((FC_SPACING % 2 == 0) && (FC_THRESHOLD < BOOTSTOP_PERMUTATIONS));
-
-  
-  loadTreeFileToMemory(tr, bootStrapFileName, adef);
+   
   numberOfTrees = tr->numberOfTrees;
  
   
@@ -1937,27 +1734,23 @@ void computeBootStopOnly(tree *tr, char *bootStrapFileName, analdef *adef)
   for(i = 1; i <= numberOfTrees && !stop; i++)
     {                  
       int 
-	bCount = 0,
-	position = 0;
-      
-      double t = gettime();
+	bCount = 0;           
      
 
-      treeReadTopologyString(tr->treeStarts[i - 1], tr, FALSE, FALSE, &position, TRUE, adef, TRUE); 
+      treeReadLen(treeFile, tr, FALSE, FALSE, TRUE, adef, TRUE); 
       assert(tr->mxtips == tr->ntips);
       
       bitVectorInitravSpecial(bitVectors, tr->nodep[1]->back, tr->mxtips, vectorLength, h, (i - 1), BIPARTITIONS_BOOTSTOP, (branchInfo *)NULL,
 			      &bCount, treeVectorLength, FALSE, FALSE);
-      tt += gettime() - t;
+      
       assert(bCount == tr->mxtips - 3);
                  
       treesAdded++;	
             
-      if(i > START_BSTOP_TEST && i % checkEvery == 0)
+      if((i > START_BSTOP_TEST) && (i % checkEvery == 0))
 	{ 
 	  int countBetter = 0;
-	  
-	  t = gettime();
+	  	 
 	  switch(tr->bootStopCriterion)
 	    {
 	    case FREQUENCY_STOP:
@@ -1981,8 +1774,7 @@ void computeBootStopOnly(tree *tr, char *bootStrapFileName, analdef *adef)
 	      break;
 	    default:
 	      assert(0);
-	    }
-	  tc += gettime() - t;
+	    }	 
 	}	 	   
       
     }
@@ -1994,7 +1786,7 @@ void computeBootStopOnly(tree *tr, char *bootStrapFileName, analdef *adef)
   else    
     printBothOpen("Bootstopping test did not converge after %d trees\n", treesAdded);     
 
-  freeTreeFileInMemory(tr); 
+  fclose(treeFile); 
   
   freeBitVectors(bitVectors, 2 * tr->mxtips);
   free(bitVectors);
@@ -2018,7 +1810,9 @@ boolean computeBootStopMPI(tree *tr, char *bootStrapFileName, analdef *adef, dou
     bootStopPermutations = 0,
     numberOfTrees = 0, 
     i,
-    countBetter = 0,
+    countBetter = 0;
+  
+  unsigned int
     treeVectorLength, 
     vectorLength;
 
@@ -2032,7 +1826,9 @@ boolean computeBootStopMPI(tree *tr, char *bootStrapFileName, analdef *adef, dou
     int **bitVectors = initBitVector(tr, &vectorLength);   
 
   
-  loadTreeFileToMemory(tr, bootStrapFileName, adef);
+  FILE 
+    *treeFile = getNumberOfTrees(tr, bootStrapFileName, adef);
+  
   numberOfTrees = tr->numberOfTrees;
 
   if(numberOfTrees % 2 != 0)
@@ -2058,10 +1854,9 @@ boolean computeBootStopMPI(tree *tr, char *bootStrapFileName, analdef *adef, dou
   for(i = 1; i <= numberOfTrees; i++)
     {                  
       int 
-	bCount = 0,
-	position = 0;          
+	bCount = 0;          
      
-      treeReadTopologyString(tr->treeStarts[i - 1], tr, FALSE, FALSE, &position, TRUE, adef, TRUE); 
+      treeReadLen(treeFile, tr, FALSE, FALSE, TRUE, adef, TRUE); 
       assert(tr->mxtips == tr->ntips);
       
       bitVectorInitravSpecial(bitVectors, tr->nodep[1]->back, tr->mxtips, vectorLength, h, (i - 1), BIPARTITIONS_BOOTSTOP, (branchInfo *)NULL,
@@ -2127,7 +1922,7 @@ boolean computeBootStopMPI(tree *tr, char *bootStrapFileName, analdef *adef, dou
       assert(0);
     }
         
-  freeTreeFileInMemory(tr); 
+  fclose(treeFile); 
   
   freeBitVectors(bitVectors, 2 * tr->mxtips);
   free(bitVectors);
@@ -2139,7 +1934,7 @@ boolean computeBootStopMPI(tree *tr, char *bootStrapFileName, analdef *adef, dou
 
 #endif
 
-boolean bootStop(tree *tr, hashtable *h, int numberOfTrees, double *pearsonAverage, unsigned int **bitVectors, int treeVectorLength, int vectorLength)
+boolean bootStop(tree *tr, hashtable *h, int numberOfTrees, double *pearsonAverage, unsigned int **bitVectors, int treeVectorLength, unsigned int vectorLength)
 {
   int 
     n = numberOfTrees + 1,
@@ -2194,9 +1989,9 @@ boolean bootStop(tree *tr, hashtable *h, int numberOfTrees, double *pearsonAvera
 
 /* consensus stuff */
 
-static boolean compatible(entry* e1, entry* e2, int bvlen)
+boolean compatible(entry* e1, entry* e2, unsigned int bvlen)
 {
-  int i;
+  unsigned int i;
 
   unsigned int 
     *A = e1->bitVector,
@@ -2259,7 +2054,570 @@ static int _sortByWeight1(const void *a, const void *b)
   return sortByWeight(a,b,1);
 }
 
-static void mre(hashtable *h, boolean icp, entry*** sbi, int* len, int which, int n, int vectorLength, boolean sortp)
+boolean issubset(unsigned int* bipA, unsigned int* bipB, unsigned int vectorLen)
+{
+  unsigned int i;
+  
+  for(i = 0; i < vectorLen; i++)
+    if((bipA[i] & bipB[i]) != bipA[i])    
+      return FALSE;
+        
+  return TRUE; 
+}
+
+
+
+
+
+#ifdef _NEW_MRE
+
+static void mre(hashtable *h, boolean icp, entry*** sbi, int* len, int which, int n, unsigned int vectorLength, boolean sortp, tree *tr, boolean bootStopping)
+{
+  entry 
+    **sbw;
+  
+  unsigned int   
+    i = 0,
+    j = 0;
+  
+  sbw = (entry **) calloc(h->entryCount, sizeof(entry *));
+   
+  for(i = 0; i < h->tableSize; i++) /* copy hashtable h to list sbw */
+    {		
+      if(h->table[i] != NULL)
+	{
+	  entry 
+	    *e = h->table[i];
+	  
+	  do
+	    {
+	      sbw[j] = e;
+	      j++;
+	      e = e->next;
+	    }
+	  
+	  while(e != NULL);
+	}
+    }
+
+  assert(h->entryCount == j);
+
+  if(which == 0)  		/* sort the sbw list */
+    qsort(sbw, h->entryCount, sizeof(entry *), _sortByWeight0);
+  else
+    qsort(sbw, h->entryCount, sizeof(entry *), _sortByWeight1);
+
+  *sbi = (entry **)calloc(n - 3, sizeof(entry *));
+
+  *len = 0;
+
+  if(icp == FALSE)
+    {
+      
+#ifdef _USE_PTHREADS
+      /*
+	We only deploy the parallel version of MRE when not using it 
+	in conjunction with bootstopping for the time being.
+	When bootstopping it is probably easier and more efficient to
+	parallelize over the permutations 
+      */
+
+      if(!bootStopping)
+	{
+	  /*printf("Parallel region \n" );*/
+
+	  tr->h = h;
+	  NumberOfJobs = tr->h->entryCount;
+	  tr->sectionEnd = NumberOfThreads * MRE_MIN_AMOUNT_JOBS_PER_THREAD;
+	  tr->len = len;
+	  tr->sbi = (*sbi);
+	  tr->maxBips = n - 3;	
+	  tr->recommendedAmountJobs = 1;
+	  tr->bitVectorLength = vectorLength;
+	  tr->sbw = sbw;
+	  tr->entriesOfSection = tr->sbw;
+	  tr->bipStatus = (int*)calloc(tr->sectionEnd, sizeof(int));
+	  tr->bipStatusLen = tr->sectionEnd;
+	  masterBarrier(THREAD_MRE_COMPUTE, tr);
+	}
+      else
+#endif
+	{
+	  for(i = 0; i < h->entryCount && (*len) < n-3; i++)
+	    {			
+	      boolean 
+		compatflag = TRUE;
+	      
+	      entry 
+		*currentEntry = sbw[i];	  	     
+	      
+	      assert(*len < n-3);
+	      
+	      if(currentEntry->supportFromTreeset[which] <= ((unsigned int)tr->mr_thresh))
+		{
+		  int k;
+		  
+		  for(k = (*len); k > 0; k--)
+		    {
+		      if( ! compatible((*sbi)[k-1], currentEntry, vectorLength))
+			{
+			  compatflag = FALSE;	    
+			  break;
+			}
+		    }
+		}
+	      
+	      if(compatflag)
+		{	      
+		  (*sbi)[*len] = sbw[i];
+		  (*len)++;
+		}         
+	    }
+	}
+    }
+  else 
+    {      
+      for(i = 0; i < (unsigned int)(n-3); i++)
+	{
+	  (*sbi)[i] = sbw[i];
+	  (*len)++;
+	}
+    }
+
+
+  free(sbw);
+
+  if (sortp == TRUE)
+    qsort(*sbi, (*len), sizeof(entry *), sortByIndex);
+
+  return;
+}
+
+
+/* if we encounter the first bits that are set, then we can determine,
+   whether bip a is a subset of bip b.  We already know, that A has
+   more bits set than B and that both bips are compatible to each
+   other. Thus, if A & B is true (and A contains bits), then A MUST be
+   a proper subset of B (given the setting). */
+
+/* check different versions of this ! */
+
+
+
+
+static int sortByAmountTips(const void *a, const void *b)
+{				
+  entry 
+    *A = (*(entry **)a),
+    *B = (*(entry **)b);
+  
+  if((unsigned int)A->amountTips == (unsigned int)B->amountTips)
+    return 0; 
+
+  return (((unsigned int)A->amountTips < (unsigned int)B->amountTips) ?  -1 : 1); 
+}
+
+static void printBipsRecursive(FILE *outf, int consensusBipLen, entry **consensusBips, int numberOfTrees, 
+			       int currentBipIdx, List **listOfDirectChildren, int bitVectorLength, int numTips, 
+			       char **nameList, entry *currentBip, boolean *printed, boolean topLevel, unsigned int *printCounter)
+{
+  List *idx; 
+  int i;
+  unsigned int *currentBitVector = (unsigned int*)malloc(bitVectorLength * sizeof(unsigned int));  
+  
+  /* open bip */
+  if(*printed)
+    fprintf(outf, ",");
+  *printed = FALSE;
+    
+  if(!topLevel)
+    fprintf(outf, "(");   
+
+  /* determine tips that are not in sub bipartitions */
+  for(i = 0; i < bitVectorLength; i++)
+    {  	  
+      idx = listOfDirectChildren[currentBipIdx]; 
+      currentBitVector[i] = currentBip->bitVector[i];
+      while(idx)
+	{
+	  currentBitVector[i] = currentBitVector[i] & ~ consensusBips[*((int*)idx->value)]->bitVector[i]; 
+	  idx = idx->next;
+	}
+    }
+
+  /* print out those tips that are direct leafs of the current bip */
+  for(i = 0; i < numTips; i++)
+    {
+    if(currentBitVector[i/MASK_LENGTH] & mask32[i%MASK_LENGTH])
+      {
+	if(*printed){fprintf(outf, ",");};
+	fprintf(outf, "%s", nameList[i+1]);    
+	*printed = TRUE;
+      }
+    }
+
+  /* process all sub bips */    
+  idx = listOfDirectChildren[currentBipIdx]; 
+  while(idx)
+    {
+    
+      if(*printed)
+	{
+	  fprintf(outf, ",");
+	  *printed = FALSE;
+	} 
+      
+      printBipsRecursive(outf, consensusBipLen, consensusBips, numberOfTrees, 
+			 *((int*)idx->value), listOfDirectChildren, bitVectorLength, numTips, nameList, 
+			 consensusBips[*((int*)idx->value)], printed, FALSE, printCounter);
+      *printed  = TRUE;
+      idx = idx->next; 
+    }
+
+  /* close the bipartition */
+  if(currentBipIdx != consensusBipLen)
+    {
+      double 
+	support = ((double)(currentBip->supportFromTreeset[0])) / ((double) (numberOfTrees));
+      
+      int 
+	branchLabel = (int)(0.5 + support * 100.0);
+      
+      fprintf(outf,"):1.0[%d]", branchLabel);
+      
+      *printCounter = *printCounter + 1;
+    }
+  else
+    fprintf(outf, ");\n");
+  
+  free(currentBitVector); 
+}
+
+
+
+
+static void printSortedBips(entry **consensusBips, const int consensusBipLen, const int numTips, const int vectorLen, 
+			    const int numberOfTrees, FILE *outf, char **nameList , tree *tr, unsigned int *printCounter)
+{
+  int 
+    i;
+
+  List 
+    **listOfDirectChildren = (List**) calloc(consensusBipLen + 1, sizeof(List*)); /* reserve one more: the last one is the bip with all species */
+  
+  boolean 
+    *hasAncestor = (boolean*) calloc(consensusBipLen, sizeof(boolean)),
+    *printed = (boolean*)malloc(sizeof(boolean));
+  
+  entry 
+    *topBip; 
+
+  /* sort the consensusBips by the amount of tips they contain */
+  
+  for( i = 0; i < consensusBipLen; i++)
+    consensusBips[i]->amountTips = genericBitCount(consensusBips[i]->bitVector, vectorLen);  
+
+  qsort(consensusBips, consensusBipLen, sizeof(entry *), &sortByAmountTips);
+
+  /* create an artificial entry for the top */
+  topBip = (entry *)malloc(sizeof(entry));
+  topBip->bitVector = malloc(sizeof(unsigned int) * vectorLen);  
+  
+  for(i = 1; i < numTips ; i++)
+    topBip->bitVector[i / MASK_LENGTH] |= mask32[i % MASK_LENGTH];  
+
+ 
+
+  /* find the parent of each bip (in the tree they represent) and construct some kind of hashtable this way */
+#ifdef _USE_PTHREADS
+
+  /* printf("Parallel region\n"); */
+
+  NumberOfJobs = consensusBipLen;
+  tr->consensusBipLen = consensusBipLen; 
+  tr->consensusBips = consensusBips;
+  tr->mxtips = numTips; /* don't need this ? */
+  tr->hasAncestor = hasAncestor; 
+  tr->listOfDirectChildren = listOfDirectChildren;
+  tr->bitVectorLength = vectorLen;   
+  tr->mutexesForHashing = (pthread_mutex_t**) malloc(consensusBipLen * sizeof(pthread_mutex_t*));  
+  
+  for(i = 0; i < consensusBipLen; i++)
+    {
+      tr->mutexesForHashing[i] = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
+      pthread_mutex_init(tr->mutexesForHashing[i], (pthread_mutexattr_t *)NULL);
+    }
+  
+  masterBarrier(THREAD_PREPARE_BIPS_FOR_PRINT, tr);
+
+  /* cleanup */
+  for(i = 0; i < consensusBipLen; i++)
+    free(tr->mutexesForHashing[i]);
+  free(tr->mutexesForHashing);
+
+  /* restore the old variables - necessary? */
+  
+  hasAncestor = tr->hasAncestor;
+  listOfDirectChildren = tr->listOfDirectChildren; 
+#else 
+  for(i = 0; i < consensusBipLen; i++)
+    {
+      int j;
+      
+      for(j = i+1; j < consensusBipLen; j++)
+	{
+	  if((unsigned int)consensusBips[i]->amountTips < (unsigned int)consensusBips[j]->amountTips
+	     && issubset(consensusBips[i]->bitVector, consensusBips[j]->bitVector, vectorLen))
+	    { 
+	      /* i is child of j */
+	      /* insert */	
+	      
+	      List 
+		*elem = (List*) malloc(sizeof(List));
+	      
+	      /* elem->value = &i; */
+	      
+	      elem->value = calloc(1, sizeof(int));
+	      
+	      *(int*)elem->value = i; 
+	      elem->next = (listOfDirectChildren[j])
+		?listOfDirectChildren[j]
+		:NULL;
+	      listOfDirectChildren[j] = elem;
+	      hasAncestor[i] = TRUE;
+	      break;
+	    }
+	}
+    }
+#endif
+
+  /****************************************************************/
+  /* print the bips during a DFS search on the ancestor hashtable */
+  /****************************************************************/
+
+  /* insert these toplevel bips into the last field of the array */
+  for(i = 0; i < consensusBipLen; i++)
+    if( ! hasAncestor[i])
+      {
+	List *elem  = (List*) malloc(sizeof(List));
+	/* elem->value = &i;  */
+	elem->value = calloc(1, sizeof(int)); /* TODO omg this needs refactoring... */
+	*(int*)elem->value = i;
+	elem->next = (listOfDirectChildren[consensusBipLen]) 
+	  ? listOfDirectChildren[consensusBipLen]
+	  : NULL;
+	listOfDirectChildren[consensusBipLen] = elem;       
+      }
+  
+  /* start dfs search at the top level */
+  printBipsRecursive(outf, 
+		     consensusBipLen, consensusBips, 
+		     numberOfTrees, consensusBipLen,
+		     listOfDirectChildren, vectorLen, 
+		     numTips, nameList, 
+		     topBip, printed, TRUE, printCounter);
+
+  free(topBip->bitVector);
+  free(topBip);
+  free(printed);
+  free(hasAncestor);
+
+  /* here is a bug, when I try to free the memory on the veryBig (55K)
+     dataset. When freeing the toplevel bips
+     (listOfDirectChildren[consensusBipLen]), he complains of sth like
+     a double free. At this point the value of ptr is not 0, however
+     the memory cannot be accessed. Also got a "bus error" instead of
+     the described error here. This is very strange, I already have
+     accessed the stuff I try to free.   */
+  /* for(i = 0; i < consensusBipLen+1; i++) */
+  /*   { */
+  /*     list *ptr = listOfDirectChildren[i]; */
+  /*     while(ptr){ */
+  /* 	list *n = ptr->next; */
+  /* 	/\* free(ptr);		/\\* TODO pthreads: last one  *\\/ *\/ */
+  /* 	ptr = n; */
+  /*     } */
+  /*   } */
+}
+
+
+
+
+void computeConsensusOnly(tree *tr, char *treeSetFileName, analdef *adef)
+{        
+  hashtable 
+    *h = initHashTable(tr->mxtips * FC_INIT * 10);;
+
+  hashNumberType
+    entries = 0;
+
+  unsigned int  
+    printCounter  = 0,
+    numberOfTrees = 0, 
+    i, 
+    j,     
+    treeVectorLength, 
+    vectorLength;
+
+  int
+    consensusBipsLen = 0;  
+
+  unsigned int    
+    **bitVectors = initBitVector(tr, &vectorLength);
+
+  entry 
+    **consensusBips;
+
+  char 
+    consensusFileName[1024];   
+  
+  FILE 
+    *outf,
+    *treeFile = getNumberOfTrees(tr, treeSetFileName, adef);
+
+  numberOfTrees = tr->numberOfTrees; 
+
+  tr->mr_thresh = ((double)numberOfTrees / 2.0);   
+
+  assert(sizeof(unsigned char) == 1);
+ 
+  treeVectorLength = GET_BITVECTOR_LENGTH(numberOfTrees);
+
+  /* read the trees and process the bipartitions */ 
+
+  for(i = 1; i <= numberOfTrees; i++)
+    {                  
+      int 
+	bCount = 0;
+      
+      treeReadLen(treeFile, tr, FALSE, FALSE, TRUE, adef, TRUE);               
+      
+      assert(tr->mxtips == tr->ntips);
+      
+      bitVectorInitravSpecial(bitVectors, tr->nodep[1]->back, tr->mxtips, vectorLength, h, (i - 1), BIPARTITIONS_BOOTSTOP, (branchInfo *)NULL,
+			      &bCount, treeVectorLength, FALSE, FALSE);
+      
+      assert(bCount == tr->mxtips - 3);                     
+    }
+  
+  fclose(treeFile);
+
+  
+
+  if(tr->consensusType == MR_CONSENSUS || tr->consensusType == STRICT_CONSENSUS)
+    {
+      consensusBips = (entry **)calloc(tr->mxtips - 3, sizeof(entry *));
+      consensusBipsLen = 0;   
+    }
+  
+  for(j = 0; j < (unsigned int)h->tableSize; j++) /* determine support of the bips */
+    {		
+      if(h->table[j] != NULL)
+	{
+	  entry *e = h->table[j];
+	  
+	  do
+	    {	
+	      unsigned int 
+		cnt = genericBitCount(e->treeVector, treeVectorLength);
+	      
+	      if(tr->consensusType == MR_CONSENSUS)
+		{
+		  if(cnt > (unsigned int)tr->mr_thresh)
+		    {
+		      consensusBips[consensusBipsLen] = e;
+		      consensusBipsLen++;
+		    }
+		}
+	      
+	      if(tr->consensusType == STRICT_CONSENSUS)
+		{
+		  if(cnt == numberOfTrees)
+		    {
+		      consensusBips[consensusBipsLen] = e;
+		      consensusBipsLen++;
+		    }
+		}
+	      
+	      e->supportFromTreeset[0] = cnt;
+	      e = e->next;
+	      entries++;
+	    }
+	  while(e != NULL);		
+	}	  	        
+    }	
+  
+  assert(h->entryCount == entries);
+  
+  if(tr->consensusType == MR_CONSENSUS || tr->consensusType == STRICT_CONSENSUS)
+    assert(consensusBipsLen <= (tr->mxtips - 3));
+   
+  if(tr->consensusType == MRE_CONSENSUS)   
+    mre(h, FALSE, &consensusBips, &consensusBipsLen, 0, tr->mxtips, vectorLength, FALSE , tr, FALSE);  
+
+  /* printf("Bips NEW %d\n", consensusBipsLen); */
+
+  strcpy(consensusFileName,         workdir);  
+  
+  switch(tr->consensusType)
+    {
+    case MR_CONSENSUS:
+      strcat(consensusFileName,         "RAxML_MajorityRuleConsensusTree.");
+      break;
+    case MRE_CONSENSUS:
+      strcat(consensusFileName,         "RAxML_MajorityRuleExtendedConsensusTree.");
+      break;
+    case STRICT_CONSENSUS:
+      strcat(consensusFileName,         "RAxML_StrictConsensusTree.");
+      break;
+    default:
+      assert(0);
+    }
+  
+  strcat(consensusFileName,         run_id);
+
+  outf = myfopen(consensusFileName, "wb");
+
+  fprintf(outf, "(%s", tr->nameList[1]);
+  printSortedBips(consensusBips, consensusBipsLen, tr->mxtips, vectorLength, numberOfTrees, outf, tr->nameList, tr, &printCounter);
+
+  assert(printCounter ==  (unsigned int)consensusBipsLen);
+
+  /* ????? fprintf(outf, ");\n"); */
+  
+  fclose(outf);
+
+  switch(tr->consensusType)
+    {
+    case MR_CONSENSUS:
+      printBothOpen("RAxML Majority Rule consensus tree written to file: %s\n", consensusFileName);
+      break;
+    case MRE_CONSENSUS:
+      printBothOpen("RAxML extended Majority Rule consensus tree written to file: %s\n", consensusFileName);
+      break;
+    case STRICT_CONSENSUS:
+      printBothOpen("RAxML strict consensus tree written to file: %s\n", consensusFileName);
+      break;
+    default:
+      assert(0);
+    }
+  
+  freeBitVectors(bitVectors, 2 * tr->mxtips);
+  free(bitVectors);
+  freeHashTable(h);
+  free(h);
+  free(consensusBips);  
+
+  exit(0);   
+}
+
+
+#else
+
+
+
+
+static void mre(hashtable *h, boolean icp, entry*** sbi, int* len, int which, int n, unsigned int vectorLength, boolean sortp, tree *tr, boolean bootStopping)
 {
   entry **sbw;
   unsigned int 
@@ -2290,6 +2648,14 @@ static void mre(hashtable *h, boolean icp, entry*** sbi, int* len, int which, in
     qsort(sbw, h->entryCount, sizeof(entry *), _sortByWeight0);      
   else    
     qsort(sbw, h->entryCount, sizeof(entry *), _sortByWeight1);      
+
+  /* ***********************************          */
+  /* SOS SBI is never freed ********************* */
+  /* ******************************************** */
+  /**** this will cause problems for repeated invocations */
+  /**** with the bootstopping MRE VERSION !!!!!!        ***/
+      
+
 
   *sbi = (entry **)calloc(n - 3, sizeof(entry *));
 
@@ -2339,37 +2705,25 @@ static void mre(hashtable *h, boolean icp, entry*** sbi, int* len, int which, in
   if (sortp == TRUE)
     qsort(*sbi, (*len), sizeof(entry *), sortByIndex);    
 
- 
-
   return;
 }
 
 
 
-//is A a subset of B?
-static boolean issubset(unsigned int* bipA, unsigned int* bipB, int vectorLen)
-{
-  int i;
-
-  for (i = 0; i < vectorLen; i++)    
-    /*if((bipA[i] & bipB[i]) != bipA[i])    */
-    /* code below seems to be slightly faster */
-    if((bipA[i] & ~bipB[i]) != 0)
-      return FALSE;
-        
-  return TRUE;
-}
 
 
 
-static void printBip(entry *curBip, entry **consensusBips, const int consensusBipLen, const int numtips, const int vectorLen, 
-		     boolean *processed, tree *tr, FILE *outf, const int numberOfTrees, boolean topLevel)
+
+static void printBip(entry *curBip, entry **consensusBips, const unsigned int consensusBipLen, const int numtips, const unsigned int vectorLen, 
+		     boolean *processed, tree *tr, FILE *outf, const int numberOfTrees, boolean topLevel, unsigned int *printCounter)
 {
   int
-    branchLabel,
-    i,
-    j,    
+    branchLabel,     
     printed = 0;
+
+  unsigned int 
+    i,
+    j;
 
   unsigned int *subBip = (unsigned int *)calloc(vectorLen, sizeof(unsigned int));
 
@@ -2398,14 +2752,14 @@ static void printBip(entry *curBip, entry **consensusBips, const int consensusBi
 	      else		
 		fprintf(outf, ",");
 		
-	      printBip(consensusBips[i], consensusBips, consensusBipLen, numtips, vectorLen, processed, tr, outf, numberOfTrees, FALSE);
+	      printBip(consensusBips[i], consensusBips, consensusBipLen, numtips, vectorLen, processed, tr, outf, numberOfTrees, FALSE, printCounter);
 
 	      printed += 1;
 	    }
 	}
     }	
   
-  for(i = 0; i < numtips; i++)
+  for(i = 0; i < ((unsigned int)numtips); i++)
     {
       if((((curBip->bitVector[i/MASK_LENGTH] & mask32[i%MASK_LENGTH]) > 0) && ((subBip[i/MASK_LENGTH] & mask32[i%MASK_LENGTH]) == 0) ) == TRUE)
 	{
@@ -2425,7 +2779,10 @@ static void printBip(entry *curBip, entry **consensusBips, const int consensusBi
   branchLabel = (int)(0.5 + support * 100.0);
   
   if(!topLevel)
-    fprintf(outf,"):1.0[%d]", branchLabel);
+    {
+      *printCounter = *printCounter + 1;
+      fprintf(outf,"):1.0[%d]", branchLabel);
+    }
 }
 
 void computeConsensusOnly(tree *tr, char *treeSetFileName, analdef *adef)
@@ -2441,12 +2798,13 @@ void computeConsensusOnly(tree *tr, char *treeSetFileName, analdef *adef)
     i, 
     j, 
     l,
-    treeVectorLength, 
-    vectorLength,
+    treeVectorLength,     
     consensusBipsLen,
     mr_thresh;
 
-  unsigned int 
+  unsigned int
+    printCounter = 0,
+    vectorLength,
     **bitVectors = initBitVector(tr, &vectorLength),
     *topBip;
 
@@ -2461,11 +2819,10 @@ void computeConsensusOnly(tree *tr, char *treeSetFileName, analdef *adef)
     consensusFileName[1024];
   
   FILE 
-    *outf;  
+    *outf,
+    *treeFile = getNumberOfTrees(tr, treeSetFileName, adef);
 
- 
-  
-  loadTreeFileToMemory(tr, treeSetFileName, adef);
+     
   numberOfTrees = tr->numberOfTrees; 
   
   mr_thresh = ((double)numberOfTrees / 2.0);  
@@ -2480,10 +2837,9 @@ void computeConsensusOnly(tree *tr, char *treeSetFileName, analdef *adef)
   for(i = 1; i <= numberOfTrees; i++)
     {                  
       int 
-	bCount = 0,
-	position = 0;
+	bCount = 0;
       
-      treeReadTopologyString(tr->treeStarts[i - 1], tr, FALSE, FALSE, &position, TRUE, adef, TRUE);               
+      treeReadLen(treeFile, tr, FALSE, FALSE, TRUE, adef, TRUE);               
       
       assert(tr->mxtips == tr->ntips);
       
@@ -2543,16 +2899,17 @@ void computeConsensusOnly(tree *tr, char *treeSetFileName, analdef *adef)
 	}	  	        
     }	
 
-  freeTreeFileInMemory(tr); 
+  fclose(treeFile); 
   assert(entries == h->entryCount);
   
   if(tr->consensusType == MR_CONSENSUS || tr->consensusType == STRICT_CONSENSUS)
     assert(consensusBipsLen <= (tr->mxtips - 3));
 
   if(tr->consensusType == MRE_CONSENSUS)    
-    mre(h, FALSE, &consensusBips, &consensusBipsLen, 0, tr->mxtips, vectorLength, FALSE);    
+    mre(h, FALSE, &consensusBips, &consensusBipsLen, 0, tr->mxtips, vectorLength, FALSE, tr);    
 
- 
+  
+  /* printf("Bips OLD %d\n", consensusBipsLen); */
 
   processed = (boolean *) calloc(consensusBipsLen, sizeof(boolean));
 
@@ -2586,10 +2943,10 @@ void computeConsensusOnly(tree *tr, char *treeSetFileName, analdef *adef)
   outf = myfopen(consensusFileName, "wb");
 
   fprintf(outf, "(%s", tr->nameList[1]);
-  printBip(&topBipE, consensusBips, consensusBipsLen, tr->mxtips, vectorLength, processed, tr, outf, numberOfTrees, TRUE);  
+  printBip(&topBipE, consensusBips, consensusBipsLen, tr->mxtips, vectorLength, processed, tr, outf, numberOfTrees, TRUE, &printCounter);  
   fprintf(outf, ");\n");
 
-  
+  assert(consensusBipsLen == (int)printCounter);
 
   fclose(outf);
   
@@ -2616,12 +2973,9 @@ void computeConsensusOnly(tree *tr, char *treeSetFileName, analdef *adef)
   free(bitVectors);
   freeHashTable(h);
   free(h);
-  free(consensusBips); 
-
-  
- 
-  /*fclose(INFILE);*/
-
+  free(consensusBips);  
   
   exit(0);   
 }
+
+#endif

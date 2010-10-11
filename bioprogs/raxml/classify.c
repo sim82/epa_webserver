@@ -1427,6 +1427,188 @@ static void consolidateInfoBootstrap(tree *tr)
 }
 
 
+/*#define _ERICK */
+
+#ifdef _ERICK
+
+/* function to lexicographically compare strings in C using qsort */
+
+static int compareStrings(const void *p1, const void *p2)
+{
+  char **rc1 = (char **)p1;
+  char **rc2 = (char **)p2;  
+  
+  return strcmp(*rc1, *rc2);
+}
+
+
+/* 
+   fix order of subtree by looking for the taxon with the minimum rank according to
+   the lexicographic order stored in order.
+*/
+   
+   
+
+
+static int fixOrder(tree *tr, nodeptr p, int *order)
+{
+
+
+  if(isTip(p->number, tr->mxtips))
+    {
+      /* 
+	 if node p is a tip just return the rank according to the lexicographic sorting 
+      */
+
+      assert(order[p->number] > 0 && order[p->number] <= tr->mxtips);
+
+      return (order[p->number]);
+    }
+  else
+    {
+      /* 
+	 p is an inner node, so first get the minimum rank 
+	 of the taxa contained in the left and right subtree,
+	 given by p->next->back and 
+	 p->next->next->back
+      */
+
+      int
+	leftRank = fixOrder(tr, p->next->back, order),
+	rightRank = fixOrder(tr, p->next->next->back, order);
+
+      /* 
+	 now if the minimum lexikographic rank of a taxon on the 
+	 left subtree is larger than the minimum lexicographic rank 
+	 of a taxon in the right subtree we need to exchange them, i.e.,
+	 the right subtree becomes the left subtree and the 
+	 left subtree becomes the right one 
+      */
+
+      if(leftRank >= rightRank)
+	{
+	  nodeptr 	    
+	    left = p->next->back,
+	    right = p->next->next->back;	 	     	  
+	  
+	  hookup(p->next, right, right->z, tr->numBranches); 
+	  hookup(p->next->next, left, left->z, tr->numBranches); 	 
+	}
+
+      /* 
+	 now just return the minimum of the left and right subtree ranks 
+	 for the recursion
+      */
+
+      return (MIN(leftRank, rightRank));
+    }
+
+}
+
+
+static nodeptr findCanonicTip(tree *tr, int *perm)
+{
+  char 
+    **names = (char **)malloc(sizeof(char *) * ((size_t)tr->ntips));
+
+  int
+    *order = (int *)calloc(((size_t)(tr->mxtips + 1)), sizeof(int)),
+    lookup,
+    i,
+    j;
+  
+
+  /*
+    add those taxa in the alignment that form part of the reference 
+    tree to the list that shall be sorted 
+  */
+
+  for(i = 1, j = 0; i <= tr->mxtips; i++)
+    {
+      if(perm[i] == 1)
+	{
+	  int 
+	    len = strlen(tr->nameList[i]);
+	  
+	  names[j] = (char*)malloc(len * sizeof(char));
+
+	  strcpy(names[j], tr->nameList[i]);
+
+	  j++;
+	}
+    }
+  
+  /*
+    sort the list lexicographically
+  */
+
+  qsort(names, tr->ntips, sizeof(char *), compareStrings);
+
+
+  /* 
+     now store the lexicographic order/rank for every taxon 
+     that is in the reference tree in an array.
+     if a taxon is not in the ref tree the respective entry 
+     in array order will be zero 
+  */
+
+  for(i = 0; i < tr->ntips; i++)
+    {
+      lookup =  lookupWord(names[i], tr->nameHash);
+
+      assert(lookup > 0 && lookup <= tr->mxtips);
+      
+      order[lookup] = i;
+    }
+
+
+  /*
+    now set the canonic starting taxon from where we
+    start traversing the tree to the lexicographically 
+    smallest tip
+  */
+
+  lookup = lookupWord(names[0], tr->nameHash);
+
+  /*
+    make sure that the starting taxon is part of the reference 
+    tree to feel better 
+  */
+
+  assert(perm[lookup] == 1);
+  
+  printBothOpen("Re-rooting to %s %s\n", names[0], tr->nameList[lookup]);
+  
+  /* 
+     free string arrays
+  */
+
+  for(i = 0; i < tr->ntips; i++)
+    free(names[i]);
+
+  free(names);
+
+  /*
+    call recursive function to fix ordering of subtrees such 
+    that the left subtree always contains the lexicographically 
+    smaller taxon 
+  */
+
+  fixOrder(tr, tr->nodep[lookup]->back, order);
+  
+  /* 
+     free rank/order array
+  */
+
+  free(order);
+  
+  /* return canonic starting node */
+
+  return (tr->nodep[lookup]);
+}
+
+#endif
+
 
 void classifyML(tree *tr, analdef *adef)
 {
@@ -1436,7 +1618,12 @@ void classifyML(tree *tr, analdef *adef)
     j,  
     *perm;    
   
-  nodeptr   
+#ifdef _ERICK
+  nodeptr
+    canonicRoot;
+#endif
+
+  nodeptr     
     r, 
     q;    
      
@@ -1465,7 +1652,7 @@ void classifyML(tree *tr, analdef *adef)
 
   evaluateGenericInitrav(tr, tr->start); 
   
-  modOpt(tr, adef, TRUE, 1.0);
+  modOpt(tr, adef, TRUE, 1.0, FALSE);
 
   perm    = (int *)calloc(tr->mxtips + 1, sizeof(int));
   tr->inserts = (int *)calloc(tr->mxtips, sizeof(int));
@@ -1483,7 +1670,12 @@ void classifyML(tree *tr, analdef *adef)
 	  tr->numberOfTipsForInsertion = tr->numberOfTipsForInsertion + 1;
 	}
     }    
-  
+
+#ifdef _ERICK  
+  canonicRoot = findCanonicTip(tr, perm);
+  tr->start = canonicRoot;
+#endif
+
   free(perm);
   
   printBothOpen("RAxML will place %d Query Sequences into the %d branches of the reference tree with %d taxa\n\n",  tr->numberOfTipsForInsertion, (2 * tr->ntips - 3), tr->ntips);
@@ -1515,9 +1707,14 @@ void classifyML(tree *tr, analdef *adef)
       sprintf(tr->bInf[i].epa->branchLabel, "I%d", i);     
     } 
 
-  r = tr->nodep[(tr->nextnode)++];     
-
+  r = tr->nodep[(tr->nextnode)++]; 
+    
+#ifdef _ERICK
+  q = canonicRoot;
+#else
   q = findAnyTip(tr->start, tr->rdta->numsp);
+#endif
+
   assert(isTip(q->number, tr->rdta->numsp));
   assert(!isTip(q->back->number, tr->rdta->numsp));
 	 

@@ -81,7 +81,9 @@ static void setRateModel(tree *tr, int model, double rate, int position)
   else
     assert(position >= 0 && position < numRates);
 
-  assert(tr->partitionData[model].dataType != BINARY_DATA);   
+  assert(tr->partitionData[model].dataType != BINARY_DATA); 
+
+  assert(rate >= RATE_MIN && rate <= RATE_MAX);
 
   if(tr->partitionData[model].nonGTR)
     {    
@@ -311,7 +313,9 @@ static void evaluateChange(tree *tr, int rateNumber, double *value, double *resu
 	  for(k = 0; k < ll->ld[i].partitions; k++)
 	    {
 	      int index = ll->ld[i].partitionList[k];
-
+	      	      
+	      assert(tr->perPartitionLH[index] <= 0.0);		
+	      
 	      result[i] -= tr->perPartitionLH[index];	            
 	      tr->executeModel[index] = TRUE;
 	    }
@@ -379,7 +383,9 @@ static void evaluateChange(tree *tr, int rateNumber, double *value, double *resu
 	  for(k = 0; k < ll->ld[i].partitions; k++)
 	    {
 	      int index = ll->ld[i].partitionList[k];
-
+	      
+	      assert(tr->perPartitionLH[index] <= 0.0);
+	      
 	      result[i] -= tr->perPartitionLH[index];	            
 	      tr->executeModel[index] = TRUE;
 	    }
@@ -458,7 +464,10 @@ static void evaluateChange(tree *tr, int rateNumber, double *value, double *resu
 		{
 		  int index = ll->ld[i].partitionList[k];
 
-		  result[pos] -= tr->perPartitionLH[index];	            		  
+		  assert(tr->perPartitionLH[index] <= 0.0);
+
+		  result[pos] -= tr->perPartitionLH[index];
+		  
 		}
 	      pos++;
 	    }
@@ -480,7 +489,7 @@ static void evaluateChange(tree *tr, int rateNumber, double *value, double *resu
 
 
 static void brentGeneric(double *ax, double *bx, double *cx, double *fb, double tol, double *xmin, double *result, int numberOfModels, 
-			 int whichFunction, int rateNumber, analdef *adef, tree *tr, linkageList *ll)
+			 int whichFunction, int rateNumber, analdef *adef, tree *tr, linkageList *ll, double lim_inf, double lim_sup)
 {
   int iter, i;
   double 
@@ -523,6 +532,17 @@ static void brentGeneric(double *ax, double *bx, double *cx, double *fb, double 
       fw[i] = fv[i] = fx[i] = fb[i];
     }
 
+  for(i = 0; i < numberOfModels; i++)
+    {      
+      assert(a[i] >= lim_inf && a[i] <= lim_sup);
+      assert(b[i] >= lim_inf && b[i] <= lim_sup);
+      assert(x[i] >= lim_inf && x[i] <= lim_sup);
+      assert(v[i] >= lim_inf && v[i] <= lim_sup);
+      assert(w[i] >= lim_inf && w[i] <= lim_sup);
+    }
+  
+  
+
   for(iter = 1; iter <= ITMAX; iter++)
     {
       allConverged = TRUE;
@@ -555,17 +575,21 @@ static void brentGeneric(double *ax, double *bx, double *cx, double *fb, double 
 	  return;
 	}     
 
-
-
       for(i = 0; i < numberOfModels; i++)
 	{
 	  if(!converged[i])
-	    {
+	    {	     	      
+	      assert(a[i] >= lim_inf && a[i] <= lim_sup);
+	      assert(b[i] >= lim_inf && b[i] <= lim_sup);
+	      assert(x[i] >= lim_inf && x[i] <= lim_sup);
+	      assert(v[i] >= lim_inf && v[i] <= lim_sup);
+	      assert(w[i] >= lim_inf && w[i] <= lim_sup);
+  
 	      xm[i] = 0.5 * (a[i] + b[i]);
 	      tol2[i] = 2.0 * (tol1[i] = tol * fabs(x[i]) + BRENT_ZEPS);
 	  
 	      if(fabs(x[i] - xm[i]) <= (tol2[i] - 0.5 * (b[i] - a[i])))
-		{
+		{		 
 		  result[i] =  -fx[i];
 		  xmin[i]   = x[i];
 		  converged[i] = TRUE;		  
@@ -573,7 +597,7 @@ static void brentGeneric(double *ax, double *bx, double *cx, double *fb, double 
 	      else
 		{
 		  if(fabs(e[i]) > tol1[i])
-		    {
+		    {		     
 		      r[i] = (x[i] - w[i]) * (fx[i] - fv[i]);
 		      q[i] = (x[i] - v[i]) * (fx[i] - fw[i]);
 		      p[i] = (x[i] - v[i]) * q[i] - (x[i] - w[i]) * r[i];
@@ -594,15 +618,17 @@ static void brentGeneric(double *ax, double *bx, double *cx, double *fb, double 
 			}
 		    }
 		  else
-		    {
+		    {		     
 		      d[i] = BRENT_CGOLD * (e[i] = (x[i] >= xm[i] ? a[i] - x[i]: b[i] - x[i]));
 		    }
-		  u[i] = (fabs(d[i]) >= tol1[i] ? x[i] + d[i]: x[i] +SIGN(tol1[i], d[i]));
+		  u[i] = ((fabs(d[i]) >= tol1[i]) ? (x[i] + d[i]): (x[i] +SIGN(tol1[i], d[i])));
 		}
+
+	      if(!converged[i])
+		assert(u[i] >= lim_inf && u[i] <= lim_sup);
 	    }
 	}
-
-      
+                 
       evaluateChange(tr, rateNumber, u, fu, converged, adef, whichFunction, numberOfModels, ll);
 
       for(i = 0; i < numberOfModels; i++)
@@ -615,6 +641,7 @@ static void brentGeneric(double *ax, double *bx, double *cx, double *fb, double 
 		    a[i] = x[i];
 		  else
 		    b[i] = x[i];
+		  
 		  SHFT(v[i],w[i],x[i],u[i]);
 		  SHFT(fv[i],fw[i],fx[i],fu[i]);
 		}
@@ -624,6 +651,7 @@ static void brentGeneric(double *ax, double *bx, double *cx, double *fb, double 
 		    a[i] = u[i];
 		  else
 		    b[i] = u[i];
+		  
 		  if(fu[i] <= fw[i] || w[i] == x[i])
 		    {
 		      v[i] = w[i];
@@ -640,6 +668,13 @@ static void brentGeneric(double *ax, double *bx, double *cx, double *fb, double 
 			}
 		    }	    
 		}
+	      
+	      assert(a[i] >= lim_inf && a[i] <= lim_sup);
+	      assert(b[i] >= lim_inf && b[i] <= lim_sup);
+	      assert(x[i] >= lim_inf && x[i] <= lim_sup);
+	      assert(v[i] >= lim_inf && v[i] <= lim_sup);
+	      assert(w[i] >= lim_inf && w[i] <= lim_sup);
+	      assert(u[i] >= lim_inf && u[i] <= lim_sup);
 	    }
 	}
     }
@@ -695,7 +730,6 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
   for(i = 0; i < numberOfModels; i++)
     converged[i] = FALSE;
 
-
   for(i = 0; i < numberOfModels; i++)
     {
       state[i] = 0;
@@ -705,8 +739,13 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 
       param[i] = ax[i];
 
-      if(param[i] > lim_sup) param[i] = lim_sup;
-      if(param[i] < lim_inf) param[i] = lim_inf;
+      if(param[i] > lim_sup) 	
+	param[i] = ax[i] = lim_sup;
+      
+      if(param[i] < lim_inf) 
+	param[i] = ax[i] = lim_inf;
+
+      assert(param[i] >= lim_inf && param[i] <= lim_sup);
     }
    
   
@@ -716,26 +755,34 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
   for(i = 0; i < numberOfModels; i++)
     {
       param[i] = bx[i];
-      if(param[i] > lim_sup) param[i] = lim_sup;
-      if(param[i] < lim_inf) param[i] = lim_inf;
+      if(param[i] > lim_sup) 
+	param[i] = bx[i] = lim_sup;
+      if(param[i] < lim_inf) 
+	param[i] = bx[i] = lim_inf;
+
+      assert(param[i] >= lim_inf && param[i] <= lim_sup);
     }
-
   
-
   evaluateChange(tr, rateNumber, param, fb, converged, adef, whichFunction, numberOfModels, ll);
 
   for(i = 0; i < numberOfModels; i++)  
     {
       if (fb[i] > fa[i]) 
-	{
+	{	  
 	  SHFT(dum[i],ax[i],bx[i],dum[i]);
 	  SHFT(dum[i],fa[i],fb[i],dum[i]);
 	}
       
-      cx[i]=(bx[i])+MNBRAK_GOLD*(bx[i]-ax[i]);
+      cx[i] = bx[i] + MNBRAK_GOLD * (bx[i] - ax[i]);
+      
       param[i] = cx[i];
-      if(param[i] > lim_sup) param[i] = cx[i] = lim_sup;
-      if(param[i] < lim_inf) param[i] = cx[i] = lim_inf;
+      
+      if(param[i] > lim_sup) 
+	param[i] = cx[i] = lim_sup;
+      if(param[i] < lim_inf) 
+	param[i] = cx[i] = lim_inf;
+
+      assert(param[i] >= lim_inf && param[i] <= lim_sup);
     }
   
  
@@ -750,6 +797,24 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 
        if(allConverged)
 	 {
+	   for(i = 0; i < numberOfModels; i++)
+	     {	       
+	       if(ax[i] > lim_sup) 
+		 ax[i] = lim_sup;
+	       if(ax[i] < lim_inf) 
+		 ax[i] = lim_inf;
+
+	       if(bx[i] > lim_sup) 
+		 bx[i] = lim_sup;
+	       if(bx[i] < lim_inf) 
+		 bx[i] = lim_inf;
+	       
+	       if(cx[i] > lim_sup) 
+		 cx[i] = lim_sup;
+	       if(cx[i] < lim_inf) 
+		 cx[i] = lim_inf;
+	     }
+
 	   free(converged);
 	   free(ulim);
 	   free(u);
@@ -764,8 +829,6 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 	   
 	 }
 
-
- 
        for(i = 0; i < numberOfModels; i++)
 	 {
 	   if(!converged[i])
@@ -774,41 +837,58 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 		 {
 		 case 0:
 		   endState[i] = 0;
-		   if(!(fb[i] > fc[i]))
-		     {	     
-		       converged[i] = TRUE;		       
-		     }
+		   if(!(fb[i] > fc[i]))		         
+		     converged[i] = TRUE;		       		     
 		   else
 		     {
 		   
-		       if(ax[i] > lim_sup) ax[i] = lim_sup;
-		       if(ax[i] < lim_inf) ax[i] = lim_inf;
-		       if(bx[i] > lim_sup) bx[i] = lim_sup;
-		       if(bx[i] < lim_inf) bx[i] = lim_inf;
-		       if(cx[i] > lim_sup) cx[i] = lim_sup;
-		       if(cx[i] < lim_inf) cx[i] = lim_inf;
+		       if(ax[i] > lim_sup) 
+			 ax[i] = lim_sup;
+		       if(ax[i] < lim_inf) 
+			 ax[i] = lim_inf;
+		       if(bx[i] > lim_sup) 
+			 bx[i] = lim_sup;
+		       if(bx[i] < lim_inf) 
+			 bx[i] = lim_inf;
+		       if(cx[i] > lim_sup) 
+			 cx[i] = lim_sup;
+		       if(cx[i] < lim_inf) 
+			 cx[i] = lim_inf;
 		       
 		       r[i]=(bx[i]-ax[i])*(fb[i]-fc[i]);
 		       q[i]=(bx[i]-cx[i])*(fb[i]-fa[i]);
 		       u[i]=(bx[i])-((bx[i]-cx[i])*q[i]-(bx[i]-ax[i])*r[i])/
 			 (2.0*SIGN(MAX(fabs(q[i]-r[i]),MNBRAK_TINY),q[i]-r[i]));
+		       
 		       ulim[i]=(bx[i])+MNBRAK_GLIMIT*(cx[i]-bx[i]);
 		       
-		       if(u[i] > lim_sup) u[i] = lim_sup;
-		       if(u[i] < lim_inf) u[i] = lim_inf;
-		       if(ulim[i] > lim_sup) ulim[i] = lim_sup;
-		       if(ulim[i] < lim_inf) ulim[i] = lim_inf;
+		       if(u[i] > lim_sup) 
+			 u[i] = lim_sup;
+		       if(u[i] < lim_inf) 
+			 u[i] = lim_inf;
+		       if(ulim[i] > lim_sup) 
+			 ulim[i] = lim_sup;
+		       if(ulim[i] < lim_inf) 
+			 ulim[i] = lim_inf;
 		       
 		       if ((bx[i]-u[i])*(u[i]-cx[i]) > 0.0)
 			 {
-			   param[i] = u[i];	  
+			   param[i] = u[i];
+			   if(param[i] > lim_sup) 			     
+			     param[i] = u[i] = lim_sup;
+			   if(param[i] < lim_inf)
+			     param[i] = u[i] = lim_inf;
 			   endState[i] = 1;
 			 }
 		       else 
 			 {
 			   if ((cx[i]-u[i])*(u[i]-ulim[i]) > 0.0) 
 			     {
-			       param[i] = u[i];	       
+			       param[i] = u[i];
+			       if(param[i] > lim_sup) 
+				 param[i] = u[i] = lim_sup;
+			       if(param[i] < lim_inf) 
+				 param[i] = u[i] = lim_inf;
 			       endState[i] = 2;
 			     }		  	       
 			   else
@@ -817,6 +897,10 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 				 {
 				   u[i] = ulim[i];
 				   param[i] = u[i];	
+				   if(param[i] > lim_sup) 
+				     param[i] = u[i] = ulim[i] = lim_sup;
+				   if(param[i] < lim_inf) 
+				     param[i] = u[i] = ulim[i] = lim_inf;
 				   endState[i] = 0;
 				 }		  		
 			       else 
@@ -824,8 +908,10 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 				   u[i]=(cx[i])+MNBRAK_GOLD*(cx[i]-bx[i]);
 				   param[i] = u[i];
 				   endState[i] = 0;
-				   if(param[i] > lim_sup) {param[i] = u[i] = lim_sup;}
-				   if(param[i] < lim_inf) {param[i] = u[i] = lim_inf;}			  
+				   if(param[i] > lim_sup) 
+				     param[i] = u[i] = lim_sup;
+				   if(param[i] < lim_inf) 
+				     param[i] = u[i] = lim_inf;
 				 }
 			     }	  
 			 }
@@ -840,17 +926,16 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 		 default:
 		   assert(0);
 		 }
+	       assert(param[i] >= lim_inf && param[i] <= lim_sup);
 	     }
 	 }
-       
-       
-
+             
        evaluateChange(tr, rateNumber, param, temp, converged, adef, whichFunction, numberOfModels, ll);
 
        for(i = 0; i < numberOfModels; i++)
 	 {
 	   if(!converged[i])
-	     {
+	     {	       
 	       switch(endState[i])
 		 {
 		 case 0:
@@ -873,6 +958,7 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 		     {
 		       if (fu[i] > fb[i]) 
 			 {
+			   assert(u[i] >= lim_inf && u[i] <= lim_sup);
 			   cx[i]=u[i];
 			   fc[i]=fu[i];
 			   converged[i] = TRUE;			  
@@ -890,8 +976,8 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 		 case 2: 
 		   fu[i] = temp[i];
 		   if (fu[i] < fc[i]) 
-		     {
-		       SHFT(bx[i],cx[i],u[i],cx[i]+MNBRAK_GOLD*(cx[i]-bx[i]));
+		     {		     
+		       SHFT(bx[i],cx[i],u[i], cx[i]+MNBRAK_GOLD*(cx[i]-bx[i]));
 		       state[i] = 2;
 		     }	   
 		   else
@@ -901,7 +987,7 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
 		       SHFT(fa[i],fb[i],fc[i],fu[i]);
 		     }
 		   break;	   
-		 case 3:
+		 case 3:		  
 		   SHFT(fb[i],fc[i],fu[i], temp[i]);
 		   SHFT(ax[i],bx[i],cx[i],u[i]);
 		   SHFT(fa[i],fb[i],fc[i],fu[i]);
@@ -926,6 +1012,8 @@ static int brakGeneric(double *param, double *ax, double *bx, double *cx, double
    free(temp);
    free(state);   
    free(endState);
+
+  
 
    return(0);
 }
@@ -990,7 +1078,7 @@ static void optInvar(tree *tr, double modelEpsilon, linkageList *ll)
     }	       
 
   brakGeneric(_param, _a, _b, _c, _fa, _fb, _fc, lim_inf, lim_sup, numberOfModels, -1, (analdef*)NULL, INVAR_F, tr, ll);
-  brentGeneric(_a, _b, _c, _fb, modelEpsilon, _x, result, numberOfModels, INVAR_F, -1, (analdef*)NULL, tr, ll);
+  brentGeneric(_a, _b, _c, _fb, modelEpsilon, _x, result, numberOfModels, INVAR_F, -1, (analdef*)NULL, tr, ll, lim_inf, lim_sup);
 
   for(i = 0; i < numberOfModels; i++)
     endInvar[i] = result[i];
@@ -1096,7 +1184,7 @@ static void optAlpha(tree *tr, double modelEpsilon, linkageList *ll)
     }					  
 
   brakGeneric(_param, _a, _b, _c, _fa, _fb, _fc, lim_inf, lim_sup, numberOfModels, -1, (analdef*)NULL, ALPHA_F, tr, ll);       
-  brentGeneric(_a, _b, _c, _fb, modelEpsilon, _x, result, numberOfModels, ALPHA_F, -1, (analdef*)NULL, tr, ll);
+  brentGeneric(_a, _b, _c, _fb, modelEpsilon, _x, result, numberOfModels, ALPHA_F, -1, (analdef*)NULL, tr, ll, lim_inf, lim_sup);
 
   for(i = 0; i < numberOfModels; i++)
     endAlpha[i] = result[i];
@@ -1225,7 +1313,15 @@ static void optRates(tree *tr, analdef *adef, double modelEpsilon, linkageList *
       assert(pos == numberOfModels);
 
       brakGeneric(_param, _a, _b, _c, _fa, _fb, _fc, lim_inf, lim_sup, numberOfModels, i, adef, RATE_F, tr, ll);
-      brentGeneric(_a, _b, _c, _fb, modelEpsilon, _x, result, numberOfModels, RATE_F, i, adef, tr,  ll);
+      
+      for(k = 0; k < numberOfModels; k++)
+	{
+	  assert(_a[k] >= lim_inf && _a[k] <= lim_sup);
+	  assert(_b[k] >= lim_inf && _b[k] <= lim_sup);	  
+	  assert(_c[k] >= lim_inf && _c[k] <= lim_sup);	    
+	}      
+
+      brentGeneric(_a, _b, _c, _fb, modelEpsilon, _x, result, numberOfModels, RATE_F, i, adef, tr,  ll, lim_inf, lim_sup);
 	
       for(k = 0; k < numberOfModels; k++)
 	endLH[k] = result[k];
@@ -1995,7 +2091,7 @@ static void printAAmatrix(tree *tr, double epsilon)
 
 
 
-void modOpt(tree *tr, analdef *adef, boolean resetModel, double likelihoodEpsilon)
+void modOpt(tree *tr, analdef *adef, boolean resetModel, double likelihoodEpsilon, boolean testGappedImplementation)
 { 
   int i, model, catOpt = 0; 
   double 
@@ -2010,7 +2106,7 @@ void modOpt(tree *tr, analdef *adef, boolean resetModel, double likelihoodEpsilo
     int linkedRates[4] = {0, 0, 0, 0};
   */  
   int *unlinked = (int *)malloc(sizeof(int) * tr->NumberOfModels);
-
+  
 #ifdef _IPTOL
   writeCheckpoint();
 #endif
@@ -2019,22 +2115,22 @@ void modOpt(tree *tr, analdef *adef, boolean resetModel, double likelihoodEpsilo
     modelEpsilon = 0.0002;
   else 
     modelEpsilon = 0.0001;
-
-
+  
+  
   for(i = 0; i < tr->NumberOfModels; i++)
     unlinked[i] = i;
-
+  
   alphaList = initLinkageList(unlinked, tr);
   invarList = initLinkageList(unlinked, tr);
   rateList  = initLinkageListGTR(tr);
-
+  
   if(!(adef->mode == CLASSIFY_ML))
     tr->start = tr->nodep[1];
-
+  
   if(resetModel)
     {
       initRateMatrix(tr);
-
+      
       for(model = 0; model < tr->NumberOfModels; model++)
 	{     	  
 	  if(adef->useInvariant)
@@ -2045,8 +2141,7 @@ void modOpt(tree *tr, analdef *adef, boolean resetModel, double likelihoodEpsilo
 	      
 	      lower = tr->partitionData[model].lower;
 	      upper = tr->partitionData[model].upper;
-	      
-	      
+	      	      
 	      for(i = lower; i < upper; i++)
 		{
 		  if(tr->invariant[i] < 4) 		
@@ -2055,44 +2150,52 @@ void modOpt(tree *tr, analdef *adef, boolean resetModel, double likelihoodEpsilo
 		}
 	      tr->partitionData[model].propInvariant = ((double)count)/((double) total);
 	    }   
-       
+	  
 	  tr->partitionData[model].alpha = 1.0;     
-
+	  
 	  initReversibleGTR(tr, adef, model);      
-
+	  
 	  makeGammaCats(tr->partitionData[model].alpha, tr->partitionData[model].gammaRates, 4); 
 	}
 #ifdef _USE_PTHREADS     
       masterBarrier(THREAD_RESET_MODEL ,tr);    
 #endif
-   
+      
       resetBranches(tr);
       
       evaluateGenericInitrav(tr, tr->start); 
-     
+      
+      if(testGappedImplementation)
+	testGapped(tr);
+
       treeEvaluate(tr, 0.25);     
     }
-
- 
+  else
+    {
+      if(testGappedImplementation)
+	testGapped(tr);
+    }
+  
+  
   /* no need for individual models here, just an init on params equal for all partitions*/
-
+  
   do
     {           
       currentLikelihood = tr->likelihood;
-        
+      
 #ifdef _IPTOL
       writeCheckpoint();
 #endif
-
+      
       optRatesGeneric(tr, adef, modelEpsilon, rateList);
-     
+      
       onlyInitrav(tr, tr->start);         
       
       treeEvaluate(tr, 0.0625);                     	            
-               
+      
       switch(tr->rateHetModel)
 	{
-	 
+	  
 	case GAMMA_I:
 	  optAlpha(tr, modelEpsilon, alphaList);
 	  optInvar(tr, modelEpsilon, invarList); 	      	    	   	 

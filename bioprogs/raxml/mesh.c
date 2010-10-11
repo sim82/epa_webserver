@@ -44,7 +44,7 @@
 
 #include "axml.h"
 
-extern const int mask32[32];
+extern const unsigned int mask32[32];
 extern int Thorough;
 extern double masterTime;
 extern char run_id[128];
@@ -1183,7 +1183,7 @@ static void treeOptimizeRapidMesh(tree *tr, int mintrav, int maxtrav, analdef *a
   executeInsert(tr);
   
   Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, 
-	      FALSE, FALSE, adef, NO_BRANCHES, FALSE);
+	      FALSE, FALSE, adef, NO_BRANCHES, FALSE, FALSE);
 
   f = myfopen(fileName, "wb");
   fprintf(f, "%s", tr->tree_string);
@@ -1221,7 +1221,7 @@ static void treeOptimizeRapidNoMesh(tree *tr, int mintrav, int maxtrav, analdef 
   executeInsert(tr);
 
   Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, 
-	      FALSE, FALSE, adef, NO_BRANCHES, FALSE); 
+	      FALSE, FALSE, adef, NO_BRANCHES, FALSE, FALSE); 
 
   f = myfopen(fileName, "wb");
   fprintf(f, "%s", tr->tree_string);
@@ -1253,7 +1253,7 @@ void meshTreeSearch(tree *tr, analdef *adef, int thorough)
   Thorough = thorough;  
 
   t = gettime();
-  modOpt(tr, adef, FALSE, 5.0);
+  modOpt(tr, adef, FALSE, 5.0, FALSE);
   printBothOpen("Model optimization time: %f\n", gettime() - t);
 
   t = gettime();

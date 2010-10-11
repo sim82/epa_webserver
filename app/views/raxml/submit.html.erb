@@ -4,9 +4,21 @@
 
 <% form_tag({:action => 'submitJob'},:multipart => true) do %>
 
+<!-- Single or multi gene files -->
+<div class="clearfix">
+  <div id="modusButton">
+    <div id="modusSelected"> <li>Single Gene</li>
+    </div>
+  </div>
+  <div id="modusButton">
+    <div id="modusUnselected"><li><%= link_to "Multi Gene", :action => 'submit_multi_gene'%></li>
+    </div>
+  </div>
+
+</div>
+
 <!-- upload alignmentfile -->
 <div class="clearfix" id="block">
-      
   <div id="first_upload">
     <p><label for="raxml_alifile">Select alignment file</label> :   
       <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_alifile',event)" onmouseout="hideTooltip('help_alifile')"/>

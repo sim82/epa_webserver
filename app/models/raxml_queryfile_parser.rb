@@ -15,7 +15,7 @@ class RaxmlQueryfileParser
     while i < @data.size
       if @data[i] =~ /^>/ #fasta format
         j = i+1
-        while @data[j]=~/^[a-zA-Z]+$/ && j < @data.size 
+        while @data[j]=~/^[a-zA-Z\s]+$/ && j < @data.size 
           j = j+1
         end
       else
