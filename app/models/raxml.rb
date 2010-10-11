@@ -87,7 +87,7 @@ class Raxml < ActiveRecord::Base
 
   ## Saves the Input files on the job directory on disk 
   def saveOnDisk(data,path)
-    puts data
+    #puts data
     File.open(path,'wb'){|f| f.write(data.join)}
   end
 
@@ -122,7 +122,7 @@ class Raxml < ActiveRecord::Base
       opts["-useQ"] = self.queryfile
     end
     if self.use_clustering.eql?("T")
-      opts["-useCl"] = self.use_clustering
+      opts["-useCl"] = ""
     end
     if self.mga.eql?("T")
       opts["-mga"] = ""

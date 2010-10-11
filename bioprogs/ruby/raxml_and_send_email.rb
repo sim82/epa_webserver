@@ -31,6 +31,7 @@ SERVER_NAME = ENV['SERVER_NAME']
 class RaxmlAndSendEmail 
 
   def initialize(opts)
+    system "qstat -f > #{RAILS_ROOT}/tmp/files/qstat.log" #update the server capacity utilisation by startup
     @raxml_options = Hash.new
     @email_address = ""
     @queryfile = ""
@@ -43,6 +44,9 @@ class RaxmlAndSendEmail
     options_parser!(opts)
     @jobpath = "#{RAILS_ROOT}/public/jobs/#{@id}/"
     if @multi_gene_alignment
+      if @use_clustering
+        useUClust
+      end
       multiGeneAlignment
     else
       if @use_clustering
@@ -57,6 +61,7 @@ class RaxmlAndSendEmail
         send_email
       end
     end
+    system "qstat -f > #{RAILS_ROOT}/tmp/files/qstat.log" #update the server capacity utilisation after finishing
     puts "done!"
   end
 

@@ -13,7 +13,12 @@ class RaxmlController < ApplicationController
     @raxml = Raxml.new
   end
 
+  def updateServerStatus
+     system "qstat -f > #{RAILS_ROOT}/tmp/files/qstat.log" #update the server capacity utilisation
+  end
+
   def submit_single_gene
+    updateServerStatus
     @root  = "#{ENV['SERVER_ADDR']}"
     @dna_model_options = ""
     @aa_model_options = ""
@@ -28,6 +33,7 @@ class RaxmlController < ApplicationController
   end
 
   def submit_multi_gene
+    updateServerStatus
     @root  = "#{ENV['SERVER_ADDR']}"
     @dna_model_options = ""
     @aa_model_options = ""
@@ -60,6 +66,8 @@ class RaxmlController < ApplicationController
   end
 
   def getInfo
+
+    # Visitors, job Submission infos
     ips = Userinfo.find(:all)
     if ips.size == 0
       @ip_counter=0;
@@ -69,6 +77,14 @@ class RaxmlController < ApplicationController
       userinfo  = Userinfo.find(:first, :conditions => {:ip => "c.c.c.c"})
       @submission_counter = userinfo.overall_submissions
     end
+
+    # Server capacity utilisation infos
+    @slots = 0
+    @used_slots = 0
+    q = QstatFileParser.new(RAILS_ROOT+"/tmp/files/qstat.log")
+    @slots = q.slots
+    @used_slots = q.used_slots
+    # submitJob and results shpuld alwys update the status file. 
   end
 
   def submitJob
@@ -280,6 +296,7 @@ class RaxmlController < ApplicationController
   end
 
   def results
+    updateServerStatus
     @cites = []
     jobid = params[:id]
     collectCites(jobid)

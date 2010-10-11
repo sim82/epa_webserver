@@ -86,7 +86,7 @@ a:hover{
 #download li a:hover {
     display:block;
     text-decoration:none;
-    color:#ffffff;
+    color:black;
     background-color:#e2ecf3;
 }
 
