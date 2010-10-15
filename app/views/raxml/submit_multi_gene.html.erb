@@ -87,49 +87,16 @@
 <!-- Select query type -->
 <div class="clearfix"  id="block">
   <div id="query_type">
-    <p><label for = "query"> Alignment Data Type: </label>
-      
-      <input  id="query_DNA" name="query" type="radio" value="DNA" checked="checked" onclick="document.getElementById('DNA').style.display='block';document.getElementById('AA').style.display='none' ; document.getElementById('PAR').style.display='none'" />DNA
-      
-      <input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='block'; document.getElementById('PAR').style.display='none'"/>AA
-      
-      <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_input',event)" onmouseout="hideTooltip('help_input')"/>
-      <div class="help" id="help_input" style="visibility:hidden" >
-        <div id="help_header">
-          Query type:
-        </div>
-        Select the type of data in your alignment, this can be either DNA or Protein data.
+    <div id="models">
+      <!-- MGA models -->
+      <div id="MGA" style="display:block" >  
+        <p><label for = "substmodel">Model of Rate Heterogeneity </label> : 
+          <%= select_tag "substmodel", "#{@model_options}" %>
+        </p>
+        
       </div>
-
-    </p>
-  </div>
-  <div id="models">
-    <!-- DNA models -->
-    <div id="DNA" style="display:block" >  
-      <p><label for = "dna_substmodel">Model of Rate Heterogeneity </label> : 
-        <%= select_tag "dna_substmodel", "#{@dna_model_options}" %>
-      </p>
-    </div>
-    
-    <!-- Amino Acid models -->
-    <div id="AA" style="display:none">
-      <p><label for = "aa_substmodel">Model of Rate Heterogeneity </label> : 
-        <%= select_tag "aa_substmodel", "#{@aa_model_options}" %>
-        <%= select_tag "matrix", "#{@aa_matrices}" %>
-      </p>
-      <p>Use empirical base frequencies <%= check_box_tag "sm_float", "[F]"%> </p>
-    </div>
-    
-    <!-- Partioned models -->
-    <div  id="PAR" style="display:none">
-      <p><label for = "par_substmodel">Rate Heterogeneity Model </label> : 
-        <%= select_tag "par_substmodel", "#{@par_model_options}" %>
-      <p> <label for="raxml_parfile"> Partition File</label> : 
-        <%= file_field 'raxml', 'parfile' %></p>
-      </p>
     </div>
   </div>
-  
 </div>
 <!-- Select speed -->
 <div id="block">

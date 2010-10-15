@@ -1,25 +1,41 @@
 class RaxmlPartitionfileParser
 
-  attr_reader :data, :valid_format, :error
+  attr_reader :data, :valid_format, :error, :matrices
 
-  def initialize(stream, ali_length)
-    @filename = stream.original_filename
-    @data = stream.readlines
-    @valid_format = false
-    @error  = ""
-    @len = ali_length
-    @occ = Array.new(@len,0)
-    check_format
+  def initialize(*args)
+    if args.size == 2  # args[0] = stream, args[1] = ali_length
+      stream = args[0]
+      ali_length = args[1]
+      @filename = stream.original_filename
+      @data = stream.readlines   
+      @valid_format = false
+      @error  = ""
+      @len = ali_length
+      @occ = Array.new(@len,0)
+      @matrices = []
+      checkFormat
+    else
+      file = args[0]
+      @filename = file
+      f = File.open(file,'r')
+      @data = f.readlines
+      @valid_format = true
+      @error  = ""
+      @matrices = []
+      getRaxmlModelParameters
+    end
+      
   end
 
   private
-  def check_format
+  def checkFormat
     n = 1
     reads = []
     @data.each do |line|
       if line =~ /^\s*$/
         
-      elsif  line =~ /^[A-Z]+,\s+\S+\s+=(\s+\d+-\d+,)*(\s+\d+-\d+)$/ ||  line =~ /^[A-Z]+,\s+\S+\s+=(\s+\d+-\d+\\\d+,)*(\s+\d+-\d+\\\d+)$/
+      elsif  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+-\d+,)*(\s+\d+-\d+)$/ ||  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+-\d+\\\d+,)*(\s+\d+-\d+\\\d+)$/
+        @matrices << $1
         digits = line.scan(/\d+\-\d+/)
         digits.each do |dig|
           if dig =~/(\d+)\-(\d+)/
@@ -62,4 +78,19 @@ class RaxmlPartitionfileParser
     end
     return true
   end
+
+  def getRaxmlModelParameters
+    @data.each do |line|
+      if line =~ /^\s*$/
+        
+      elsif  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+-\d+,)*(\s+\d+-\d+)$/ ||  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+-\d+\\\d+,)*(\s+\d+-\d+\\\d+)$/
+        @matrices << $1
+      else
+        @error = "Invalid partitionfile format! \n ParserError :: #{@filename} line: #{n} => #{line}"
+        return
+      end
+    end
+  end
 end
+
+

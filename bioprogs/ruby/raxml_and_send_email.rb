@@ -6,6 +6,7 @@ require "#{RAILS_ROOT}/bioprogs/ruby/reformat.rb"
 require "#{File.dirname(__FILE__)}/../../config/environment.rb"
 require "#{RAILS_ROOT}/bioprogs/ruby/phylip_file_parser.rb"
 require "#{RAILS_ROOT}/bioprogs/ruby/fasta_file_parser.rb"
+require "#{RAILS_ROOT}/app/models/raxml_partitionfile_parser.rb"
 SERVER_NAME = ENV['SERVER_NAME']
 
 
@@ -56,10 +57,10 @@ class RaxmlAndSendEmail
         buildAlignmentWithHMMER
       end
       runRAxML
-      convertTreefileToPhyloXML
-      if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
-        send_email
-      end
+    end
+    convertTreefileToPhyloXML
+    if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
+      send_email
     end
     system "qstat -f > #{RAILS_ROOT}/tmp/files/qstat.log" #update the server capacity utilisation after finishing
     puts "done!"
@@ -220,21 +221,34 @@ class RaxmlAndSendEmail
     end
      i = 0
     
+
+    # get models and matrices from the partition file
+    matrices = RaxmlPartitionfileParser.new(partitionfile).matrices
+
+    model = @raxml_options["-m"]
     while i < gene_no
       gene_query_file = "#{@jobpath}queryfile_GENE#{i}.fas"
       out = File.open(gene_query_file,'w')
-      genes_reads[i].each do |name|
-        out.write(">#{name}\n")
-        out.write(query_sequences[name]+"\n")
+      if !genes_reads[i].nil?
+        genes_reads[i].each do |name|
+          out.write(">#{name}\n")
+          out.write(query_sequences[name]+"\n")
+        end
+        # build Alignments with Hmmer and run RAxML
+        @raxml_options["-s"] = alifile+".GENE.#{i}"
+        @queryfile = gene_query_file
+        @raxml_options["-n"] = outname+".GENE#{i}"
+        out.close
+        buildAlignmentWithHMMER
+        puts "RAXML"
+        substmodel = ""
+        if matrices[i] =~ /^[Dd][Nn][Aa]$/
+          @raxml_options["-m"] = "GTR#{model}"
+        else
+          @raxml_options["-m"] = "PROT#{model}#{matrices[i]}"  # PROTGAMMAWAGF
+        end
+        runRAxML
       end
-      # build Alignments with Hmmer and run RAxML
-      @raxml_options["-s"] = alifile+".GENE.#{i}"
-      @queryfile = gene_query_file
-      @raxml_options["-n"] = outname+".GENE#{i}"
-      out.close
-      buildAlignmentWithHMMER
-      puts "RAXML"
-      runRAxML
       i = i+1
     end
 
@@ -247,8 +261,6 @@ class RaxmlAndSendEmail
     puts command
     system command
 
-    # build phyloXML file
-    convertTreefileToPhyloXML
   end
   
   def useUClust
@@ -290,7 +302,10 @@ class RaxmlAndSendEmail
   def convertTreefileToPhyloXML
     treefile = ""
     if @multi_gene_alignment
-      treefile = "#{@jobpath}RAxML_originalLabelledTree.#{@id}.GENE0"  
+      Dir.glob("#{@jobpath}RAxML_originalLabelledTree.#{@id}.GENE*"){|file|
+        treefile = file
+        break
+      }
     else
       treefile = "#{@jobpath}RAxML_originalLabelledTree.#{@id}"
     end

@@ -35,17 +35,30 @@ class RaxmlController < ApplicationController
   def submit_multi_gene
     updateServerStatus
     @root  = "#{ENV['SERVER_ADDR']}"
-    @dna_model_options = ""
-    @aa_model_options = ""
-    @aa_matrices = ""
-    @par_model_options  =""
+    @model_options = ""
+    @matrices = ""
     @heuristics =""
     @heuristics_values =""
     @ip_counter = 0;
     @submission_counter = 0;
-    initialize_options
+    initialize_options_mga
     @raxml = Raxml.new
   end
+  def initialize_options_mga
+    models = ["GAMMA","CAT", "CATI","GAMMAI"]
+    models.each {|m| @model_options= @model_options+"<option>#{m}</option>"}
+    matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG"]
+    matrices.each {|m| @matrices= @matrices+"<option>#{m}</option>"}
+    heuristics = ["MP","ML"]
+    heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
+    heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
+    heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
+    
+    getInfo
+    
+  end
+  
+
 
   def initialize_options
     models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
@@ -84,7 +97,7 @@ class RaxmlController < ApplicationController
     q = QstatFileParser.new(RAILS_ROOT+"/tmp/files/qstat.log")
     @slots = q.slots
     @used_slots = q.used_slots
-    # submitJob and results shpuld alwys update the status file. 
+    # submitJob and results should always update the status file. 
   end
 
   def submitJob
@@ -106,7 +119,7 @@ class RaxmlController < ApplicationController
     @queryfile = ""
     @parfile = ""
     @outfile = ""
-    @query = params[:query]
+    @query = ""
     @speed = params[:speed][:speed]
     @substmodel = ""
     @matrix = nil
@@ -133,14 +146,8 @@ class RaxmlController < ApplicationController
     # if multi gene mode
     if @mga.eql?("T")
       # Check Query Type (DNA|AA)
-       if @query.eql?("DNA")
-        @substmodel = "#{params[:dna_substmodel]}"
-      elsif @query.eql?("AA")
-        @substmodel = params[:aa_substmodel]
-        @matrix = params[:matrix]
-        @sm_float = params[:sm_float]
-        @substmodel = "#{@substmodel}_#{@matrix}#{@sm_float}"
-       end
+      @query = "MGA"
+      @substmodel = "#{params[:substmodel]}"
       if !(@use_clustering.eql?("T"))
         @use_clustering ="F"
       end
@@ -150,13 +157,14 @@ class RaxmlController < ApplicationController
     # else single gene mode
     else
       # Check Query Type (DNA|AA|PAR)
+       @query = params[:query]
       if @query.eql?("DNA")
         @substmodel = "#{params[:dna_substmodel]}"
       elsif @query.eql?("AA")
         @substmodel = params[:aa_substmodel]
         @matrix = params[:matrix]
         @sm_float = params[:sm_float]
-        @substmodel = "#{@substmodel}_#{@matrix}#{@sm_float}"
+        @substmodel = "#{@substmodel}#{@matrix}#{@sm_float}"
       elsif @query.eql?("PAR")
         @substmodel = "GTR#{params[:par_substmodel]}"
         @parfile = params[:raxml][:parfile]
