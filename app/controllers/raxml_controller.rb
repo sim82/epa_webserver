@@ -1,6 +1,6 @@
 class RaxmlController < ApplicationController
   def submit
-    @root  = "#{ENV['SERVER_ADDR']}:3000"
+    @root  = "#{ENV['SERVER_ADDR']}"
     @dna_model_options = ""
     @aa_model_options = ""
     @aa_matrices = ""
@@ -12,6 +12,53 @@ class RaxmlController < ApplicationController
     initialize_options
     @raxml = Raxml.new
   end
+
+  def updateServerStatus
+     system "qstat -f > #{RAILS_ROOT}/tmp/files/qstat.log" #update the server capacity utilisation
+  end
+
+  def submit_single_gene
+    updateServerStatus
+    @root  = "#{ENV['SERVER_ADDR']}"
+    @dna_model_options = ""
+    @aa_model_options = ""
+    @aa_matrices = ""
+    @par_model_options  =""
+    @heuristics =""
+    @heuristics_values =""
+    @ip_counter = 0;
+    @submission_counter = 0;
+    initialize_options
+    @raxml = Raxml.new
+  end
+
+  def submit_multi_gene
+    updateServerStatus
+    @root  = "#{ENV['SERVER_ADDR']}"
+    @model_options = ""
+    @matrices = ""
+    @heuristics =""
+    @heuristics_values =""
+    @ip_counter = 0;
+    @submission_counter = 0;
+    initialize_options_mga
+    @raxml = Raxml.new
+  end
+  def initialize_options_mga
+    models = ["GAMMA","CAT", "CATI","GAMMAI"]
+    models.each {|m| @model_options= @model_options+"<option>#{m}</option>"}
+    matrices = ["DAYHOFF", "DCMUT", "JTT", "MTREV", "WAG", "RTREV", "CPREV", "VT", "BLOSUM62", "MTMAM", "LG"]
+    matrices.each {|m| @matrices= @matrices+"<option>#{m}</option>"}
+    heuristics = ["MP","ML"]
+    heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
+    heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
+    heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
+    
+    getInfo
+    
+  end
+  
+
 
   def initialize_options
     models = ["GTRGAMMA","GTRCAT", "GTRCATI","GTRGAMMAI"]
@@ -32,6 +79,8 @@ class RaxmlController < ApplicationController
   end
 
   def getInfo
+
+    # Visitors, job Submission infos
     ips = Userinfo.find(:all)
     if ips.size == 0
       @ip_counter=0;
@@ -41,6 +90,14 @@ class RaxmlController < ApplicationController
       userinfo  = Userinfo.find(:first, :conditions => {:ip => "c.c.c.c"})
       @submission_counter = userinfo.overall_submissions
     end
+
+    # Server capacity utilisation infos
+    @slots = 0
+    @used_slots = 0
+    q = QstatFileParser.new(RAILS_ROOT+"/tmp/files/qstat.log")
+    @slots = q.slots
+    @used_slots = q.used_slots
+    # submitJob and results should always update the status file. 
   end
 
   def submitJob
@@ -56,62 +113,93 @@ class RaxmlController < ApplicationController
     initialize_options
     
     @direcrory = nil
-    @ip = request.env['REMOTE_ADDR']
-    @query = params[:query]
+    @ip = request.remote_ip
+    @alifile = ""
+    @treefile = params[:treefile][:file]
+    @queryfile = ""
+    @parfile = ""
+    @outfile = ""
+    @query = ""
     @speed = params[:speed][:speed]
     @substmodel = ""
     @matrix = nil
     @sm_float = nil
-    @parfile = ""
-    if @query.eql?("DNA")
-      @substmodel = "#{params[:dna_substmodel]}"
-    elsif @query.eql?("AA")
-      @substmodel = params[:aa_substmodel]
-      @matrix = params[:matrix]
-      @sm_float = params[:sm_float]
-      @substmodel = "#{@substmodel}_#{@matrix}#{@sm_float}"
-    elsif @query.eql?("PAR")
-      @substmodel = "GTR#{params[:par_substmodel]}"
-      @parfile = params[:raxml][:parfile]
-    end
+    @use_queryfile = params[:qfile]
     @use_clustering = params[:cluster]
-    if !(@use_clustering.eql?("T"))
-      @use_clustering ="F"
-    end
+    @use_bootstrap = params[:chBoot]
+    @b_random_seed = 1234
+    @b_runs = 100
     @use_heuristic = params[:chHeu]
     @heuristic = ""
     @h_value =""
+    @email = params[:rax_email]
+    @job_description = params[:job_desc].gsub(/\s/,"__"); ### save that nobody enters sql syntax
+
+
+    @mga = "F"
+
+    # Multi gene mode?
+    if params[:modus].eql?("mga")
+      @mga = "T"
+    end
+
+    # if multi gene mode
+    if @mga.eql?("T")
+      # Check Query Type (DNA|AA)
+      @query = "MGA"
+      @substmodel = "#{params[:substmodel]}"
+      if !(@use_clustering.eql?("T"))
+        @use_clustering ="F"
+      end
+      @use_queryfile ="T"
+      @queryfile = params[:raxml][:queryfile]
+      @parfile = params[:raxml][:parfile]
+    # else single gene mode
+    else
+      # Check Query Type (DNA|AA|PAR)
+       @query = params[:query]
+      if @query.eql?("DNA")
+        @substmodel = "#{params[:dna_substmodel]}"
+      elsif @query.eql?("AA")
+        @substmodel = params[:aa_substmodel]
+        @matrix = params[:matrix]
+        @sm_float = params[:sm_float]
+        @substmodel = "#{@substmodel}#{@matrix}#{@sm_float}"
+      elsif @query.eql?("PAR")
+        @substmodel = "GTR#{params[:par_substmodel]}"
+        @parfile = params[:raxml][:parfile]
+      end
+
+      # Upload a query read file?
+      if @use_queryfile.eql?("T")
+        @queryfile = params[:raxml][:queryfile]
+      else
+        @use_queryfile = "F"
+      end
+      # Cluster uploded reads?
+      if !(@use_clustering.eql?("T"))
+        @use_clustering ="F"
+      end
+    end
+
+    # Use heuristics?
     if  @use_heuristic.eql?("T")
       @heuristic = params[:heuristic]
       @h_value = params[:heu_float]
     else
       @use_heuristic = "F"
     end
-    @b_random_seed = 1234
-    @b_runs = 100
-    @use_bootstrap = params[:chBoot]
+    
+    # Use bootstrapping?
     if @use_bootstrap.eql?("T")
       @b_random_seed = params[:random_seed]
       @b_runs = params[:runs]
     else
       @use_bootstrap = "F"
     end
-      
-    @email = params[:rax_email]
-    @outfile = ""
-    @alifile = ""
-    @queryfile = ""
-    @use_queryfile = params[:qfile]
-    if @use_queryfile.eql?("T")
-      @queryfile = params[:raxml][:queryfile]
-    else
-      @use_queryfile = "F"
-    end
-
-    @job_description = params[:job_desc].gsub(/\s/,"__"); ### save that nobody enters sql syntax
-    
-    buildJobDir
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => params[:treefile][:file], :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering, :jobid => @jobid, :user_ip => @ip, :job_description => @job_description, :status => "running"})
+   
+     buildJobDir
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => @treefile, :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering, :jobid => @jobid, :user_ip => @ip, :job_description => @job_description, :status => "running" , :mga => @mga})
     
     
     if @raxml.save
@@ -120,7 +208,7 @@ class RaxmlController < ApplicationController
       @raxml.execude(link,@raxml.jobid.to_s)
 
       ## save userinfos
-      ip = request.env['REMOTE_ADDR']
+      ip = @ip
       if ip.eql?("") || ip.nil?
         ip = "xxx.xxx.xxx.xxx"
       end
@@ -177,6 +265,7 @@ class RaxmlController < ApplicationController
     @submission_counter = 0;
     getInfo
     @raxml = Raxml.find(:first, :conditions => ["jobid = #{params[:id]}"])
+    @ip = @raxml.user_ip
     @id = params[:id]
     if !(jobIsFinished?(@raxml.jobid))
       render :action => "wait"
@@ -193,21 +282,21 @@ class RaxmlController < ApplicationController
       f = File.open(file,'r')
       fi = f.readlines
       if fi.size > 0
-        if file =~ /submit\.sh\.e/
+       # if file =~ /submit\.sh\.e/
           
-          @raxml.update_attribute(:errorfile,file)
-          f.close
-          return true
-        else
-          fi.each do |line|
-            if line =~ /\s+ERROR[\s:]\s*/i
-              @raxml.update_attribute(:errorfile,file)
-              return true
-            elsif line =~ /^done!\s*$/
-              return true
-            end
+     #     @raxml.update_attribute(:errorfile,file)
+     #     f.close
+     #     return true
+     #   else
+        fi.each do |line|
+        #  if line =~ /\s+ERROR[\s:]\s*/i
+        #    @raxml.update_attribute(:errorfile,file)
+        #    return true
+          if line =~ /^done!\s*$/
+            return true
           end
         end
+     #   end
       end
       f.close
     }
@@ -215,6 +304,7 @@ class RaxmlController < ApplicationController
   end
 
   def results
+    updateServerStatus
     @cites = []
     jobid = params[:id]
     collectCites(jobid)
@@ -234,19 +324,25 @@ class RaxmlController < ApplicationController
   end
 
   def collectCites(jobid)
-    @cites << "<b>EPA:</b> <li> S.A. Berger, A. Stamatakis, Evolutionary Placement of Short Sequence Reads. arXiv:0911.2852v1 [q-bio.GN](2009)</li>"
-    @cites << "<b>Archaeopteryx Treeviewer:</b> <li>Han, Mira V.; Zmasek, Christian M. (2009). phyloXML: XML for evolutionary biology and comparative genomics. BMC Bioinformatics (United Kingdom: BioMed Central) 10: 356. doi:10.1186/1471-2105-10-356. http://www.biomedcentral.com/1471-2105/10/356.</li>"
-    @cites << "<li>Zmasek, Christian M.; Eddy, Sean R. (2001). ATV: display and manipulation of annotated phylogenetic trees. Bioinformatics (United Kingdom: Oxford Journals) 17 (4): 383–384. http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383.</li>"
+    @cites << "<b>EPA:</b> <li> S.A. Berger, A. Stamatakis, Evolutionary Placement of Short Sequence Reads. <a href=\"http://arxiv.org/abs/0911.2852v1\" target=\"_blank\">arXiv:0911.2852v1</a> [q-bio.GN](2009)</li>"
+    @cites << "<b>Archaeopteryx Treeviewer:</b> <li>Han, Mira V.; Zmasek, Christian M. (2009). phyloXML: XML for evolutionary biology and comparative genomics. BMC Bioinformatics (United Kingdom: BioMed Central) 10: 356. doi:10.1186/1471-2105-10-356. <a href=\"http://www.biomedcentral.com/1471-2105/10/356\" target=\"_blank\">http://www.biomedcentral.com/1471-2105/10/356</a></li>"
+    @cites << "<li>Zmasek, Christian M.; Eddy, Sean R. (2001). ATV: display and manipulation of annotated phylogenetic trees. Bioinformatics (United Kingdom: Oxford Journals) 17 (4): 383–384. <a href=\"http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383\" target=\"_blank\">http://bioinformatics.oxfordjournals.org/cgi/reprint/17/4/383</a></li>"
+    @cites << "<b>Pplacer:</b><li>Frederick A Matsen, Robin B Kodner and E Virginia Armbrust, pplacer: linear time maximum-likelihood and Bayesian phylogenetic placement of sequences onto a fixed reference tree. <a href=\"http://arxiv.org/abs/1003.5943v1\" target=\"_blank\">arXiv:1003.5943v1</a>  [q-bio.PE]</li>"
     rax =  Raxml.find(:first, :conditions => ["jobid = #{jobid}"])
     if rax.use_clustering.eql?("T")
       @cites << "<b>Hmmer:</b> <li>S. R. Eddy., A New Generation of Homology Search Tools Based on Probabilistic Inference. Genome Inform., 23:205-211, 2009.</li>"
-      @cites << "<b>uclust:</b> <li>http://www.drive5.com/uclust</li>"
+      @cites << "<b>uclust:</b> <li><a href=\"http://www.drive5.com/uclust\" target=\"_blank\">http://www.drive5.com/uclust</a></li>"
     end
 
-  end    
+  end
+    
   def download 
     file = params[:file]
     send_file file
+  end
+
+  def treehelp
+    render :layout => false
   end
 
   def index

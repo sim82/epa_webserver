@@ -11,7 +11,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     @format = "unk"
     @valid_format = false
     @error = ""
-    @message = "Invalid alignmentfile format!(Only Fasta and Phylip alignment formats are allowed)\n ParserError :: #{@filename}"
+    @message = "Invalid alignmentfile format!(Only Fasta and Phylip alignment formats are allowed)  ParserError :: #{@filename}<br></br>"
     check_format   
     @ali_length = 0
     if @valid_format
@@ -45,7 +45,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
         checkPhylipFormatWithRaxml
         break
 
-      elsif @data[i] =~ /^\d+\s\d+/  #phylip format?
+      elsif @data[i] =~ /\s*\d+\s+\d+/  #phylip format?
         @format = "phl"
         @valid_format = true
         checkPhylipFormatWithRaxml
@@ -71,11 +71,11 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     @data.each {|d| f.write(d)}
     f.close
     cmd = "#{RAILS_ROOT}/bioprogs/raxml/raxmlHPC  -s #{file} -fc -m GTRGAMMA -n test"
-    # let RAxML check if phylip format is correct
+    #let RAxML check if phylip format is correct
     PTY.spawn(cmd) do |stdin, stdout, pid| 
       
       stdin.each do  |line| 
-        if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/)
+        if !(line =~ /^Alignment\sformat\scan\sbe\sread\sby\sRAxML/) || !(line=~ /IMPORTANT\s+WARNING/)
           @error = @error+line
           @format = "unk"
           @valid_format = false
@@ -85,7 +85,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     if !@error.eql?("")
       @error = "#{@message}\n#{@error}"
     end
-    system "rm #{file}"
+     system "rm #{file}"
   end
 end
 
