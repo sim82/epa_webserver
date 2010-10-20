@@ -142,7 +142,7 @@ void initTL(topolRELL_LIST *rl, tree *tr, int n)
 }
 
 
-void freeTL(topolRELL_LIST *rl, tree *tr)
+void freeTL(topolRELL_LIST *rl)
 {
   int i;
   for(i = 0; i < rl->max; i++)    

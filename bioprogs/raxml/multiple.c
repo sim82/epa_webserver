@@ -56,7 +56,7 @@ extern int  checkPointCounter;
 extern int  Thorough;
 extern int  partCount;
 extern char tree_file[1024];
-extern const int mask32[32];
+extern const unsigned int mask32[32];
 extern double masterTime;
 
 extern FILE   *INFILE, *permutationFile, *logFile, *infoFile;
@@ -109,21 +109,27 @@ static void singleBootstrap(tree *tr, int i, analdef *adef, rawdata *rdta, crunc
          
   getStartingTree(tr, adef);
 
+  if(i == 0)
+    testGapped(tr);
+
   computeBIGRAPID(tr, adef, TRUE);
 
   if(adef->bootstrapBranchLengths)
     {
       switch(tr->rateHetModel)
 	{
-	case GAMMA:
+	case GAMMA:	  
 	case GAMMA_I:      
-	  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);		      	    	    
+	  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, FALSE);		      	    	    
 	  break;
 	case CAT:    	      	 		  
 	  tr->likelihood = unlikely;	       
 	  catToGamma(tr, adef);	  
-	  initModel(tr, rdta, cdta, adef);	  	  	  
-	  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);	 
+	  initModel(tr, rdta, cdta, adef);
+	  if(i == 0)
+	    modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, TRUE);	 
+	  else
+	    modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, FALSE);
 	  gammaToCat(tr); 		  	      	        	
 	  break;
 	default:
@@ -131,9 +137,8 @@ static void singleBootstrap(tree *tr, int i, analdef *adef, rawdata *rdta, crunc
 	}
     }  
 
-#ifndef PARALLEL
-   printBootstrapResult(tr, adef, TRUE);
-#endif     
+
+   printBootstrapResult(tr, adef, TRUE);    
 }
 
 
@@ -216,6 +221,23 @@ void fixModelIndices(tree *tr, int endsite)
       for(j = 1; j <= tr->mxtips; j++)
 	tr->partitionData[model].yVector[j] = &(tr->yVector[j][tr->partitionData[model].lower]);
 
+      
+      {
+	int 
+	  width =  tr->partitionData[model].width,
+	  undetermined = getUndetermined(tr->partitionData[model].dataType),
+	  j;		         		     
+	
+	tr->partitionData[model].gapVectorLength = ((int)width / 32) + 1;
+
+	memset(tr->partitionData[model].gapVector, 0, tr->partitionData[model].initialGapVectorSize);
+
+	for(j = 1; j <= tr->mxtips; j++)
+	  for(i = 0; i < width; i++)
+	    if(tr->partitionData[model].yVector[j][i] == undetermined)
+	      tr->partitionData[model].gapVector[tr->partitionData[model].gapVectorLength * j + i / 32] |= mask32[i % 32];
+      }
+
     }
 #else
   masterBarrier(THREAD_FIX_MODEL_INDICES, tr);
@@ -249,7 +271,7 @@ void reductionCleanup(tree *tr, int *originalRateCategories, int *originalInvari
 	}
     }                           
       
-  memcpy(tr->rdta->y0, tr->rdta->yBUF, tr->rdta->numsp * tr->cdta->endsite * sizeof(char));  
+  memcpy(tr->rdta->y0, tr->rdta->yBUF, ((size_t)tr->rdta->numsp) * ((size_t)tr->cdta->endsite) * sizeof(char));  
       
   tr->cdta->endsite = tr->originalCrunchedLength;
   fixModelIndices(tr, tr->originalCrunchedLength);      
@@ -265,9 +287,7 @@ void computeNextReplicate(tree *tr, long *randomSeed, int *originalRateCategorie
   int pos, nonzero, j, model, w;   
   int *weightBuffer, endsite;                
   int *weights, i, l;  
-#ifdef PARALLEL
-  long seed;
-#endif 
+
 
   for(j = 0; j < tr->originalCrunchedLength; j++)
     tr->cdta->aliaswgt[j] = 0;
@@ -284,14 +304,9 @@ void computeNextReplicate(tree *tr, long *randomSeed, int *originalRateCategorie
 	}				          
       
       weightBuffer = (int *)calloc(nonzero, sizeof(int));	 
-#ifdef PARALLEL 
-      seed = (long) gettimeSrand();
-      for (j = 0; j < nonzero; j++)
-	weightBuffer[(int) (nonzero*randum(& seed))]++;
-#else       
+     
       for (j = 0; j < nonzero; j++)
 	weightBuffer[(int) (nonzero*randum(randomSeed))]++;                  
-#endif
       
       pos = 0;	      
       
@@ -337,8 +352,8 @@ void computeNextReplicate(tree *tr, long *randomSeed, int *originalRateCategorie
 
   for(i = 0; i < tr->rdta->numsp; i++)
     {     
-      unsigned char *yPos    = &(tr->rdta->y0[tr->originalCrunchedLength * i]);
-      unsigned char *origSeq = &(tr->rdta->yBUF[tr->originalCrunchedLength * i]);
+      unsigned char *yPos    = &(tr->rdta->y0[((size_t)tr->originalCrunchedLength) * ((size_t)i)]);
+      unsigned char *origSeq = &(tr->rdta->yBUF[((size_t)tr->originalCrunchedLength) * ((size_t)i)]);
       int l, j;
       
       for(j = 0, l = 0; j < tr->originalCrunchedLength; j++)      
@@ -464,11 +479,88 @@ static void copyParams(int numberOfModels, pInfo *dst, pInfo *src, tree *tr)
 }
 
 
+#ifdef _WAYNE_MPI
 
+static void copyFiles(FILE *source, FILE *destination)
+{
+  size_t 
+    c;
+  
+  char 
+    buf[1024];
+  
+  assert(processID == 0);
 
-#ifndef PARALLEL
+  while((c = fread(buf, sizeof(char), 1024, source)) > 0)
+    fwrite(buf, sizeof(char), c, destination);     	
+}
 
+static void concatenateBSFiles(int processes)
+{
+  if(processID == 0)
+    {
+      int i;
+      
+      FILE 
+	*destination = myfopen(bootstrapFileName, "w"),
+	*source = (FILE*)NULL;
+      
+      char 
+	sourceName[1024];          
+      
+      strcpy(sourceName, bootstrapFileName);
+      strcat(sourceName, ".PID.");
+      
+      for(i = 0; i < processes; i++)
+	{
+	  char 
+	    buf[64],
+	    temporary[1024];
+	  
+	  sprintf(buf, "%d", i);
+	  strcpy(temporary, sourceName);
+	  strcat(temporary, buf);
+	  
+	  source = myfopen(temporary, "r");
+	  
+	  copyFiles(source, destination);
+	  
+	  fclose(source);
+	}
+      
+      fclose(destination);
+    }
+}
 
+static void removeBSFiles(int processes)
+{
+  if(processID == 0)
+    {
+      int 
+	i;
+      
+      char 
+	sourceName[1024];            
+      
+      strcpy(sourceName, bootstrapFileName);
+      strcat(sourceName, ".PID.");
+      
+      for(i = 0; i < processes; i++)
+	{
+	  char 
+	    buf[64],
+	    temporary[1024];
+	  
+	  sprintf(buf, "%d", i);
+	  strcpy(temporary, sourceName);
+	  strcat(temporary, buf);
+	  
+	  remove(temporary);
+	}
+    }
+}
+
+#endif
 
 
 void doAllInOne(tree *tr, analdef *adef)
@@ -480,12 +572,16 @@ void doAllInOne(tree *tr, analdef *adef)
     bootStopTests = 1,
     j,
     bootStrapsPerProcess = 0;
-#endif
+#endif 
 
   double loopTime; 
   int      *originalRateCategories;
   int      *originalInvariant;
+#ifdef _WAYNE_MPI
+  int      slowSearches, fastEvery;
+#else
   int      slowSearches, fastEvery = 5;
+#endif
   int treeVectorLength = -1;
   topolRELL_LIST *rl;  
   double bestLH, mlTime, overallTime;  
@@ -498,7 +594,7 @@ void doAllInOne(tree *tr, analdef *adef)
   double pearsonAverage = 0.0;
   pInfo *catParams         = allocParams(tr);
   pInfo *gammaParams = allocParams(tr);
-  int vLength;
+  unsigned int vLength;
 
   n = adef->multipleRuns; 
 
@@ -588,9 +684,9 @@ void doAllInOne(tree *tr, analdef *adef)
 	      onlyInitrav(tr, tr->start);
 	      treeEvaluate(tr, 1);	     	
 	     	      
-	      t = gettime();    
+	      t = gettime();    	      
 
-	      modOpt(tr, adef, FALSE, 5.0);	    
+	      modOpt(tr, adef, FALSE, 5.0, TRUE);	    
 #ifdef _WAYNE_MPI
 	      printBothOpen("\nTime for BS model parameter optimization on Process %d: %f seconds\n", processID, gettime() - t);	     
 #else
@@ -606,8 +702,8 @@ void doAllInOne(tree *tr, analdef *adef)
 		    {
 		      copyParams(tr->NumberOfModels, catParams, tr->partitionData, tr);		      
 		      assert(tr->cdta->endsite == tr->originalCrunchedLength);		 
-		      catToGamma(tr, adef);
-		      modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);
+		      catToGamma(tr, adef);		      
+		      modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, TRUE);
 		      copyParams(tr->NumberOfModels, gammaParams, tr->partitionData, tr);		      
 		      gammaToCat(tr);
 		      copyParams(tr->NumberOfModels, tr->partitionData, catParams, tr);		      
@@ -674,19 +770,23 @@ void doAllInOne(tree *tr, analdef *adef)
 #ifdef _WAYNE_MPI
 	{
 	  int 
-	    n = (i + 1) * processes;
+	    nn = (i + 1) * processes;
 
-	  if((n > START_BSTOP_TEST) && 
+	  if((nn > START_BSTOP_TEST) && 
 	     (i * processes < FC_SPACING * bootStopTests) &&
 	     ((i + 1) * processes >= FC_SPACING * bootStopTests)
 	     )	     
 	    {
 	      MPI_Barrier(MPI_COMM_WORLD);
-	      /*printf("Process %d Bootstop at %d total %d\n", processID, i + 1, n);*/
+	                    
+	      concatenateBSFiles(processes);                
+	      
+              MPI_Barrier(MPI_COMM_WORLD);	      
+	      
 	      bootStopIt = computeBootStopMPI(tr, bootstrapFileName, adef, &pearsonAverage);
 	      bootStopTests++;
 	    }
-	}
+	}	
 #else	
 	bootStopIt = bootStop(tr, h, i, &pearsonAverage, bitVectors, treeVectorLength, vLength);
 #endif
@@ -694,9 +794,16 @@ void doAllInOne(tree *tr, analdef *adef)
 
     }  
  
-#ifdef _WAYNE_MPI  
+#ifdef _WAYNE_MPI      
+  MPI_Barrier(MPI_COMM_WORLD);
+  
   bootstrapsPerformed = i * processes; 
   bootStrapsPerProcess = i;   
+      
+  concatenateBSFiles(processes);
+  removeBSFiles(processes);  
+  
+  MPI_Barrier(MPI_COMM_WORLD); 
 #else
   bootstrapsPerformed = i;
 #endif
@@ -773,9 +880,7 @@ void doAllInOne(tree *tr, analdef *adef)
 	  }
       }
     
-#ifdef _WAYNE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
+
     t = gettime() - masterTime;
 
     printBothOpenMPI("Overall Time for %d Rapid Bootstraps %f seconds\n", bootstrapsPerformed, t);     
@@ -816,19 +921,15 @@ void doAllInOne(tree *tr, analdef *adef)
 
   evaluateGenericInitrav(tr, tr->start);   
   
-  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);    
-
-  if(adef->bootStopping)
-    {
-      if(bootstrapsPerformed <= 100)
-	fastEvery = 5;
-      else
-	fastEvery = bootstrapsPerformed / 20;     
-    }
-  else    
-    fastEvery = 5;    
+  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, FALSE);  
 
 #ifdef _WAYNE_MPI
+  
+  if(bootstrapsPerformed <= 100)
+    fastEvery = 5;
+  else
+    fastEvery = bootstrapsPerformed / 20;
+
   for(i = 0; i < bootstrapsPerformed; i++)
     rl->t[i]->likelihood = unlikely;
 
@@ -895,7 +996,7 @@ void doAllInOne(tree *tr, analdef *adef)
 
   evaluateGenericInitrav(tr, tr->start);
 
-  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);     
+  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, FALSE);     
   
   slowSearches = bootstrapsPerformed / 5;
   if(bootstrapsPerformed % 5 != 0)
@@ -946,7 +1047,7 @@ void doAllInOne(tree *tr, analdef *adef)
   if(tr->rateHetModel == CAT) 
     {      
       catToGamma(tr, adef);    
-      modOpt(tr, adef, TRUE, adef->likelihoodEpsilon); 
+      modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, TRUE); 
     }
 
   bestIndex = -1;
@@ -1017,7 +1118,7 @@ void doAllInOne(tree *tr, analdef *adef)
   treeOptimizeThorough(tr, 1, 10);
   evaluateGenericInitrav(tr, tr->start);
   
-  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);
+  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, FALSE);
   t = gettime() - t;
 
 #ifdef _WAYNE_MPI
@@ -1069,7 +1170,7 @@ void doAllInOne(tree *tr, analdef *adef)
   strcat(bestTreeFileName, "RAxML_bestTree.");
   strcat(bestTreeFileName,         run_id);
    
-  Tree2String(tr->tree_string, tr, tr->start->back, TRUE, TRUE, FALSE, FALSE, TRUE, adef, SUMMARIZE_LH, FALSE);
+  Tree2String(tr->tree_string, tr, tr->start->back, TRUE, TRUE, FALSE, FALSE, TRUE, adef, SUMMARIZE_LH, FALSE, FALSE);
   f = myfopen(bestTreeFileName, "wb");
   fprintf(f, "%s", tr->tree_string);
   fclose(f);
@@ -1086,7 +1187,7 @@ void doAllInOne(tree *tr, analdef *adef)
   printBothOpen("\nDrawing Bootstrap Support Values on best-scoring ML tree ...\n\n");
       
   
-  freeTL(rl, tr);   
+  freeTL(rl);   
   free(rl);       
   
   calcBipartitions(tr, adef, bestTreeFileName, bootstrapFileName);    
@@ -1095,7 +1196,7 @@ void doAllInOne(tree *tr, analdef *adef)
   overallTime = gettime() - masterTime;
 
   printBothOpen("Program execution info written to %s\n", infoFileName);
-  printBothOpen("All %d bootstrapped trees written to: %s\n\n", adef->multipleRuns, bootstrapFileName);
+  printBothOpen("All %d bootstrapped trees written to: %s\n\n", bootstrapsPerformed, bootstrapFileName);
   printBothOpen("Best-scoring ML tree written to: %s\n\n", bestTreeFileName);
   if(adef->perGeneBranchLengths && tr->NumberOfModels > 1)    
     printBothOpen("Per-Partition branch lengths of best-scoring ML tree written to %s.PARTITION.0 to  %s.PARTITION.%d\n\n", bestTreeFileName,  bestTreeFileName, 
@@ -1124,8 +1225,9 @@ void doBootstrap(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
     bootstrapsPerformed,
     i, 
     n, 
-    treeVectorLength = -1, 
-    vLength = -1;
+    treeVectorLength = -1;
+  unsigned int
+    vLength = 0;
 
 #ifdef _WAYNE_MPI 
   int 
@@ -1180,35 +1282,52 @@ void doBootstrap(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
       loopTime = gettime() - loopTime;     
       writeInfoFile(adef, tr, loopTime);  
 
+      if(adef->bootStopping)
 #ifdef _WAYNE_MPI
 	{
 	  int 
-	    n = (i + 1) * processes;
+	    nn = (i + 1) * processes;
 
-	  if((n > START_BSTOP_TEST) && 
+	  if((nn > START_BSTOP_TEST) && 
 	     (i * processes < FC_SPACING * bootStopTests) &&
 	     ((i + 1) * processes >= FC_SPACING * bootStopTests)
 	     )	     
 	    {
 	      MPI_Barrier(MPI_COMM_WORLD);
-	      printf("Process %d Bootstop at %d total %d\n", processID, i + 1, n);
+	                    
+	      concatenateBSFiles(processes);               
+	      
+              MPI_Barrier(MPI_COMM_WORLD);
+	     
 	      bootStopIt = computeBootStopMPI(tr, bootstrapFileName, adef, &pearsonAverage);
 	      bootStopTests++;
 	    }
 	}
-#else	
-      if(adef->bootStopping)	
-	bootStopIt = bootStop(tr, h, i, &pearsonAverage, bitVectors, treeVectorLength, vLength);
+#else	      	
+      bootStopIt = bootStop(tr, h, i, &pearsonAverage, bitVectors, treeVectorLength, vLength);
 #endif
     }      
 
 #ifdef _WAYNE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
+  
   bootstrapsPerformed = i * processes;
+  
+  if(processID == 0)
+    {      
+      if(!adef->bootStopping)
+	concatenateBSFiles(processes);
+
+      removeBSFiles(processes);      
+    }
+  
+  MPI_Barrier(MPI_COMM_WORLD); 
 #else
   bootstrapsPerformed = i;
 #endif
-
+  
+  adef->multipleRuns = bootstrapsPerformed;
+  
   if(adef->bootStopping)
     {
       freeBitVectors(bitVectors, 2 * tr->mxtips);
@@ -1325,7 +1444,10 @@ void doInference(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
                                              
       initModel(tr, rdta, cdta, adef);      
      
-      getStartingTree(tr, adef);                      
+      getStartingTree(tr, adef); 
+
+      if(i == 0)
+	testGapped(tr);
                        
       computeBIGRAPID(tr, adef, TRUE);  
 
@@ -1385,7 +1507,7 @@ void doInference(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
 	{
 	  restoreTL(rl, tr, best);
 	  onlyInitrav(tr, tr->start);
-	  modOpt(tr, adef, FALSE, adef->likelihoodEpsilon);  
+	  modOpt(tr, adef, FALSE, adef->likelihoodEpsilon, FALSE);  
 	  bestLH = tr->likelihood;
 	  tr->likelihoods[best] = tr->likelihood;
 	  saveTL(rl, tr, best);
@@ -1464,7 +1586,7 @@ void doInference(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
 	  
 	  resetBranches(tr);
 	  onlyInitrav(tr, tr->start);
-	  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);      
+	  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon, TRUE);      
 	  tr->likelihoods[best] = tr->likelihood;
 	  bestLH = tr->likelihood;     
 	  saveTL(rl, tr, best);
@@ -1575,7 +1697,7 @@ void doInference(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
       strcat(bestTreeFileName,         run_id);
       
      
-      Tree2String(tr->tree_string, tr, tr->start->back, TRUE, TRUE, FALSE, FALSE, TRUE, adef, SUMMARIZE_LH, FALSE);
+      Tree2String(tr->tree_string, tr, tr->start->back, TRUE, TRUE, FALSE, FALSE, TRUE, adef, SUMMARIZE_LH, FALSE, FALSE);
       
       f = myfopen(bestTreeFileName, "wb");
       fprintf(f, "%s", tr->tree_string);
@@ -1602,7 +1724,7 @@ void doInference(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
 
   if(!tr->catOnly)
     {
-      freeTL(rl, tr);   
+      freeTL(rl);   
       free(rl); 
     }
   
@@ -1612,950 +1734,3 @@ void doInference(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
   exit(0);
 }
 
-#else
-
-
-
-#include <mpi.h>
-
-extern int processID;
-extern int numOfWorkers;
-
-static void sendTree(tree *tr, analdef *adef, double t, boolean finalPrint, int tag)
-{
-  int bufferSize, i, bufCount;
-  double *buffer;
-  char *tree_ptr;
-
-  bufferSize = tr->treeStringLength + 4 + tr->NumberOfModels + tr->NumberOfModels;
-
-  buffer = (double *)malloc(sizeof(double) * bufferSize);
-  
-  bufCount = 0;
-  
-  buffer[bufCount++] = (double) adef->bestTrav;
-  buffer[bufCount++] = (double) tr->treeID;
-  buffer[bufCount++] = tr->likelihood;
-  buffer[bufCount++] = t;
-
-  for(i = 0; i < tr->NumberOfModels; i++)        
-    buffer[bufCount++] = tr->partitionData[i].alpha;
-
-  for(i = 0; i < tr->NumberOfModels; i++)        
-    buffer[bufCount++] = tr->partitionData[i].propInvariant;
-    
-    
-  if(adef->boot || adef->rapidBoot)
-    {
-     if(adef->bootstrapBranchLengths)
-       Tree2String(tr->tree_string, tr, tr->start->back, TRUE, TRUE, FALSE, FALSE, finalPrint, adef, SUMMARIZE_LH, FALSE);
-     else
-       Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, FALSE, finalPrint, adef, NO_BRANCHES, FALSE);
-    }
-  else
-    {
-      /*if((adef->model == M_GTRCAT || adef->model == M_PROTCAT) && (adef->useMixedModel == 0))
-	Tree2String(tr->tree_string, tr, tr->start->back, FALSE, TRUE, FALSE, FALSE, finalPrint, adef, NO_BRANCHES, FALSE);
-	else*/
-      Tree2String(tr->tree_string, tr, tr->start->back, TRUE, TRUE, FALSE, FALSE, finalPrint, adef, SUMMARIZE_LH, FALSE);
-    }
-
-  tree_ptr = tr->tree_string;
-
-  while(*tree_ptr != ';')    
-    buffer[bufCount++] = (double)*tree_ptr++;        
- 
-  buffer[bufCount++] = (double)(';');
-  buffer[bufCount++] = (double)('\n');
-
-  MPI_Send(buffer, bufferSize, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD);
-  
-  free(buffer);
-}
-
-static void receiveTree(tree *tr, analdef *adef, int workerID, double *t, int tag)
-{
-  int bufferSize, i, bufCount;
-  double *buffer, *buf_ptr;
-  char *tree_ptr, content;
-  MPI_Status msgStatus; 
-
-  bufferSize = tr->treeStringLength + 4 + tr->NumberOfModels + tr->NumberOfModels;
-
-  buffer = (double *)malloc(sizeof(double) * bufferSize);
-
-  MPI_Recv(buffer, bufferSize, MPI_DOUBLE, workerID, tag, MPI_COMM_WORLD, &msgStatus);
-  
-  bufCount = 0;
-  
-  adef->bestTrav = (int)buffer[bufCount++]; 
-  tr->treeID     = (int) buffer[bufCount++];
-  tr->likelihood = buffer[bufCount++];
-  *t = buffer[bufCount++];
-
-  tr->likelihoods[tr->treeID] = tr->likelihood;
-
-  for(i = 0; i < tr->NumberOfModels; i++)    
-    tr->partitionData[i].alpha = buffer[bufCount++];
-
-  for(i = 0; i < tr->NumberOfModels; i++)    
-    tr->partitionData[i].propInvariant = buffer[bufCount++];
-
-  buf_ptr = &buffer[bufCount];
-  tree_ptr = tr->tree_string;
-
-  while((content = (char)(buffer[bufCount++])) != ';')
-    {      
-      *tree_ptr++ = content;
-    }
-  
-  *tree_ptr++ = ';';
-  *tree_ptr++ = '\n';
-#ifdef DEBUG
-  printf("Received tree %s\n", tr->tree_string);
-#endif 
-  free(buffer);
-}
-
-
-
-
-void doBootstrap(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
-{
-  int i, n, dummy;
-  double loopTime;
-  MPI_Status msgStatus; 
-
-  n = adef->multipleRuns;
-          
-  if(processID == 0)
-    {
-      int jobsSent = 0;
-      int jobsReceived = n;
-
-      while(jobsReceived > 0)
-	{
-	  MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &msgStatus);
-	  switch(msgStatus.MPI_TAG)
-	    {
-	    case JOB_REQUEST:
-#ifdef DEBUG
-	      printf("Master receiving work request from worker %d\n",  msgStatus.MPI_SOURCE);
-#endif	      
-	      MPI_Recv(&dummy, 1, MPI_INT, msgStatus.MPI_SOURCE, JOB_REQUEST, MPI_COMM_WORLD, &msgStatus);
-	       if(jobsSent < n)
-		 {
-		   MPI_Send(&jobsSent, 1, MPI_INT, msgStatus.MPI_SOURCE, COMPUTE_TREE, MPI_COMM_WORLD);
-#ifdef DEBUG
-		   printf("Master sending job %d to worker %d\n",  jobsSent, msgStatus.MPI_SOURCE);
-#endif
-		   jobsSent++;
-		 }
-	       break;
-	    case TREE:
-#ifdef DEBUG
-	      printf("--------> Master receiving tree from worker %d\n",  msgStatus.MPI_SOURCE);	
-#endif
-	      receiveTree(tr, adef, msgStatus.MPI_SOURCE, &loopTime, TREE);	     	   	      
-	      printBootstrapResult(tr, adef, TRUE);
-	      printf("Bootstrap[%d] completed\n", tr->treeID);	 
-	      writeInfoFile(adef, tr, loopTime);
-	      jobsReceived--;
-	      if(jobsSent < n)
-		{
-		  MPI_Send(&jobsSent, 1, MPI_INT, msgStatus.MPI_SOURCE, COMPUTE_TREE, MPI_COMM_WORLD);
-#ifdef DEBUG
-		  printf("Master sending job %d to worker %d\n",  jobsSent, msgStatus.MPI_SOURCE);
-#endif
-		  jobsSent++;
-		}
-	      break;
-	    }
-	}
-      
-       for(i = 1; i < numOfWorkers; i++)
-	{
-	  MPI_Send(&dummy, 1, MPI_INT, i, FINALIZE, MPI_COMM_WORLD);
-#ifdef DEBUG
-	  printf("Master sending FINALIZE to worker %d\n",  i);
-#endif
-	}
-       return;
-    }
-  else
-    {
-      int treeCounter = 0;
-
-      MPI_Send(&dummy, 1, MPI_INT, 0, JOB_REQUEST, MPI_COMM_WORLD);
-#ifdef DEBUG
-      printf("Worker %d sending job request to master\n",  processID);
-#endif      
-       while(1)
-	{	
-	  MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &msgStatus); 
-	  	 
-	  switch(msgStatus.MPI_TAG)
-	    {
-	    case COMPUTE_TREE: 
-	      MPI_Recv(&dummy, 1, MPI_INT, 0, COMPUTE_TREE, MPI_COMM_WORLD, &msgStatus);	      
-#ifdef DEBUG
-	      printf("Worker %d receiving job %d from master\n",  processID, dummy);
-#endif	
-	      loopTime = masterTime = gettime();
-	      
-	      if(adef->multiBoot < 2)
-		singleBootstrap(tr, dummy, adef, rdta, cdta);     
-	      else
-		multipleBootstrap(tr, dummy, adef, rdta, cdta);
-
-	      treeCounter++;
-	      loopTime = gettime() - loopTime;
-	      sendTree(tr, adef, loopTime, TRUE, TREE);
-	      break;
-	    case FINALIZE:
-	      MPI_Recv(&dummy, 1, MPI_INT, 0, FINALIZE, MPI_COMM_WORLD, &msgStatus);
-#ifdef DEBUG
-	      printf("Worker %d receiving FINALIZE %d\n",  processID);
-#endif
-	      return;
-	    }
-	}
-    }  
-}
-
-void doInference(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta)
-{
-  int i, n, dummy;
-  double loopTime;
-  MPI_Status msgStatus; 
-
-  n = adef->multipleRuns;
-          
-  if(processID == 0)
-    {
-      int jobsSent = 0;
-      int jobsReceived = n;
-
-      while(jobsReceived > 0)
-	{
-	  MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &msgStatus);
-	  switch(msgStatus.MPI_TAG)
-	    {
-	    case JOB_REQUEST:
-#ifdef DEBUG
-	      printf("Master receiving work request from worker %d\n",  msgStatus.MPI_SOURCE);
-#endif	      
-	      MPI_Recv(&dummy, 1, MPI_INT, msgStatus.MPI_SOURCE, JOB_REQUEST, MPI_COMM_WORLD, &msgStatus);
-	      if(jobsSent < n)
-		{
-		  MPI_Send(&jobsSent, 1, MPI_INT, msgStatus.MPI_SOURCE, COMPUTE_TREE, MPI_COMM_WORLD);
-#ifdef DEBUG
-		  printf("Master snding job %d to worker %d\n",  jobsSent, msgStatus.MPI_SOURCE);
-#endif
-		  jobsSent++;
-		}
-	       break;
-	    case TREE:
-#ifdef DEBUG
-	      printf("--------> Master receiving tree from worker %d\n",  msgStatus.MPI_SOURCE);	
-#endif
-	      receiveTree(tr, adef, msgStatus.MPI_SOURCE, &loopTime, TREE);	     	   	      	      
-	      printf("Inference[%d] completed\n", tr->treeID);	 
-	      writeInfoFile(adef, tr, loopTime);
-	      jobsReceived--;
-	      if(jobsSent < n)
-		{
-		  MPI_Send(&jobsSent, 1, MPI_INT, msgStatus.MPI_SOURCE, COMPUTE_TREE, MPI_COMM_WORLD);
-#ifdef DEBUG
-		  printf("Master sending job %d to worker %d\n",  jobsSent, msgStatus.MPI_SOURCE);
-#endif
-		  jobsSent++;
-		}
-	      break;
-	    }
-	}
-      
-       for(i = 1; i < numOfWorkers; i++)
-	{
-	  MPI_Send(&dummy, 1, MPI_INT, i, FINALIZE, MPI_COMM_WORLD);
-#ifdef DEBUG
-	  printf("Master sending FINALIZE to worker %d\n",  i);
-#endif
-	}
-       return;
-    }
-  else
-    {
-      int treeCounter = 0;
-
-      MPI_Send(&dummy, 1, MPI_INT, 0, JOB_REQUEST, MPI_COMM_WORLD);
-#ifdef DEBUG
-      printf("Worker %d sending job request to master\n",  processID);
-#endif      
-       while(1)
-	{	
-	  MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &msgStatus); 
-	  	 
-	  switch(msgStatus.MPI_TAG)
-	    {
-	    case COMPUTE_TREE: 
-	      MPI_Recv(&dummy, 1, MPI_INT, 0, COMPUTE_TREE, MPI_COMM_WORLD, &msgStatus);	      
-#ifdef DEBUG
-	      printf("Worker %d receiving job %d from master\n",  processID, dummy);
-#endif
-	      loopTime =  masterTime = gettime();
-
-	      tr->treeID = dummy;
-	      tr->checkPointCounter = 0;
-	                    
-	      
-	      initModel(tr, rdta, cdta, adef); 
-
-	      treeCounter++;
-
-	      getStartingTree(tr, adef);  
-     
-	      computeBIGRAPID(tr, adef, TRUE);                     
-
-	      if(tr->rateHetModel == GAMMA || tr->rateHetModel == GAMMA_I)
-		{
-		  modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);			
-		  printLog(tr, adef, TRUE);
-		  printResult(tr, adef, TRUE);
-		  loopTime = gettime() - loopTime;	 		 		
-		}
-	      else
-		{	  
-		  if(adef->useMixedModel)
-		    {
-		      tr->likelihood = unlikely;
-
-		      catToGamma(tr, adef);
-
-		      initModel(tr, rdta, cdta, adef);	  	  	  
-		      modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);	
-		      printLog(tr, adef, TRUE);
-		      printResult(tr, adef, TRUE);
-		      loopTime = gettime() - loopTime;			    
-
-		      gammaToCat(tr);		      
-		    }
-		  else
-		    {
-		      loopTime = gettime() - loopTime;       		      		      
-		    }	
-		}
-	     
-	      sendTree(tr, adef, loopTime, TRUE, TREE);
-	      break;
-	    case FINALIZE:
-	      MPI_Recv(&dummy, 1, MPI_INT, 0, FINALIZE, MPI_COMM_WORLD, &msgStatus);
-#ifdef DEBUG
-	      printf("Worker %d receiving FINALIZE %d\n",  processID);
-#endif
-	      return;
-	    }
-	}
-    }  
-}
-
-
-static void allInOneMaster(tree *tr, analdef *adef)
-{  
-  MPI_Status msgStatus;
-  double loopTime; 
-  int workers = numOfWorkers - 1;
-  int i, width, dummy, whoHasBestTree = -1;
-  int bsCount, bsTotal;
-  int mlCount, mlTotal;
-  int finished = FALSE;  
-  FILE *infoFile;
-  double bestLikelihood = unlikely;  
-
-  if(adef->multipleRuns % workers == 0)
-    width = adef->multipleRuns / workers;
-  else
-    width = (adef->multipleRuns / workers) + 1;    		      
-
-  bsCount = 0;
-  mlCount = 0;
-  bsTotal = width * workers;
-  mlTotal = workers;
-
-  free(tr->likelihoods);
-  tr->likelihoods = (double *)malloc((width * workers + workers) * sizeof(double));
-
-  if(tr->rateHetModel == GAMMA || tr->rateHetModel == GAMMA_I)
-    {     
-      printf("\nSwitching from GAMMA to CAT for rapid Bootstrap, final ML search will be conducted under the %s model you specified\n", 
-	     (adef->useInvariant)?"GAMMA+P-Invar":"GAMMA");
-      infoFile = myfopen(infoFileName, "ab");
-      fprintf(infoFile, 
-	      "\nSwitching from GAMMA to CAT for rapid Bootstrap, final ML search will be conducted under the %s model you specified\n", 
-	      (adef->useInvariant)?"GAMMA+P-Invar":"GAMMA");
-      fclose(infoFile);           
-    }
-
-  while(! finished)
-    {
-      MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &msgStatus);
-      switch(msgStatus.MPI_TAG)
-	{
-	case BS_TREE:
-	  receiveTree(tr, adef, msgStatus.MPI_SOURCE, &loopTime, BS_TREE);
-#ifdef DEBUG	 
-	  printf("Received BS TREE %d %f\n", bsCount, tr->likelihood);
-#endif
-	  printBootstrapResult(tr, adef, TRUE);
-	  writeInfoFile(adef, tr, loopTime);
-	  bsCount++;
-	  break;
-	case ML_TREE: 
-	  receiveTree(tr, adef, msgStatus.MPI_SOURCE, &loopTime, ML_TREE);
-	  if(tr->likelihood > bestLikelihood)
-	    {
-	      bestLikelihood = tr->likelihood;
-	      whoHasBestTree = msgStatus.MPI_SOURCE;
-	    }
-#ifdef DEBUG
-	  printf("Received ML TREE %d %f ID %d\n", mlCount, tr->likelihood, tr->treeID);
-#endif
-	  mlCount++;
-	  break;
-	default:
-	  assert(0);
-	}
-      if(adef->allInOne)	
-	finished = (bsCount == bsTotal && mlCount == mlTotal);
-      else
-	finished = (bsCount == bsTotal);
-
-      if(adef->allInOne && bsCount == bsTotal && mlCount == 0)
-	{
-	  double t = gettime() - masterTime;
-	  infoFile = myfopen(infoFileName, "ab");
-
-	  printf("\n\n");
-	  fprintf(infoFile, "\n\n");
-
-	  if(adef->bootStopping)
-	    {
-	      assert(0);	     
-	    }
-
-	  printf("Overall Time for %d Rapid Bootstraps %f\n", bsCount, t);
-	  fprintf(infoFile, "Overall Time for %d Rapid Bootstraps %f\n", bsCount, t);
-
-	  printf("Average Time per Rapid Bootstrap %f\n", (double)(t/((double)bsCount)));                
-	  fprintf(infoFile, "Average Time per Rapid Bootstrap %f\n", (double)(t/((double)bsCount)));	           
-     
-	  fclose(infoFile);    
-	}
-
-      if(finished)
-	{
-	  if(adef->allInOne)
-	    {
-	      double overallTime;
-	      char bestTreeFileName[1024];
-
-	      strcpy(bestTreeFileName, workdir);
-	      strcat(bestTreeFileName, "RAxML_bestTree.");
-	      strcat(bestTreeFileName,         run_id);
-
-	      assert(whoHasBestTree > 0 && whoHasBestTree < numOfWorkers);
-#ifdef DEBUG
-	      printf("worker %d xas mpest tri with %f \n", whoHasBestTree, bestLikelihood);
-#endif	      
-	      MPI_Send(&dummy, 1, MPI_INT, whoHasBestTree, PRINT_TREE, MPI_COMM_WORLD);
-	      MPI_Recv(&dummy, 1, MPI_INT, whoHasBestTree, I_PRINTED_IT,  MPI_COMM_WORLD, &msgStatus);
-
-	      overallTime = gettime() - masterTime;
-	      printf("Program execution info written to %s\n", infoFileName);
-	      printf("All %d bootstrapped trees written to: %s\n\n", bsCount, bootstrapFileName);
-	      printf("Best-scoring ML tree written to: %s\n\n", bestTreeFileName);
-	      if(adef->perGeneBranchLengths && tr->NumberOfModels > 1)    
-		printf("Per-Partition branch lengths of best-scoring ML tree written to %s.PARTITION.0 to  %s.PARTITION.%d\n\n", 
-		       bestTreeFileName,  bestTreeFileName, tr->NumberOfModels - 1);    
-	      printf("Best-scoring ML tree with support values written to: %s\n\n", bipartitionsFileName);
-	      printf("Best-scoring ML tree with support values as branch labels written to: %s\n\n", bipartitionsFileNameBranchLabels);
-	      printf("Overall execution time for full ML analysis: %f secs or %f hours or %f days\n\n", 
-		     overallTime, overallTime/3600.0, overallTime/86400.0);
-  
-	      infoFile = myfopen(infoFileName, "ab");
-	      fprintf(infoFile, "All %d bootstrapped trees written to: %s\n\n", bsCount, bootstrapFileName);
-	      fprintf(infoFile, "Best-scoring ML tree written to: %s\n\n", bestTreeFileName);
-	      if(adef->perGeneBranchLengths && tr->NumberOfModels > 1)    
-		fprintf(infoFile, "Per-Partition branch lengths of best-scoring ML tree written to %s.PARTITION.0 to  %s.PARTITION.%d\n\n"
-			, bestTreeFileName,  bestTreeFileName, tr->NumberOfModels - 1);    
-	      fprintf(infoFile, "Best-scoring ML tree with support values written to: %s\n\n", 
-		      bipartitionsFileName);
-	      fprintf(infoFile, "Best-scoring ML tree with support values as branch labels written to: %s\n\n", 
-		      bipartitionsFileNameBranchLabels);
-	      fprintf(infoFile, "Overall execution time for full ML analysis: %f secs or %f hours or %f days\n\n", 
-		      overallTime, overallTime/3600.0, overallTime/86400.0);
-	      fclose(infoFile);   
-	    }
-	  else
-	    {
-	      double t = gettime() - masterTime;
-	      infoFile = myfopen(infoFileName, "ab");
-
-	      printf("\n\n");
-	      fprintf(infoFile, "\n\n");
-
-	      if(adef->bootStopping)
-		{
-		  assert(0);
-		}
-
-	      printf("Overall Time for %d Rapid Bootstraps %f\n", bsCount, t);
-	      fprintf(infoFile, "Overall Time for %d Rapid Bootstraps %f\n", bsCount, t);
-
-	      printf("Average Time per Rapid Bootstrap %f\n", (double)(t/((double)bsCount)));
-	      fprintf(infoFile, "Average Time per Rapid Bootstrap %f\n", (double)(t/((double)bsCount)));
-
-	      printf("All %d bootstrapped trees written to: %s\n", bsCount, bootstrapFileName);
-	      fprintf(infoFile, "All %d bootstrapped trees written to: %s\n", bsCount, bootstrapFileName);           
-     
-	      fclose(infoFile);	      
-	    }
-
-	  for(i = 1; i < numOfWorkers; i++)	    
-	    MPI_Send(&dummy, 1, MPI_INT, i, FINALIZE, MPI_COMM_WORLD);	 
-	}
-    }
-  
-  MPI_Finalize();
-  exit(0);
-}
-
-static void allInOneWorker(tree *tr, analdef *adef)
-{
-  int dummy, NumberOfLocalTrees;
-  MPI_Status msgStatus; 
-
-  if(adef->multipleRuns % (numOfWorkers - 1)  == 0)
-    NumberOfLocalTrees = adef->multipleRuns / (numOfWorkers - 1);
-  else
-    NumberOfLocalTrees = (adef->multipleRuns / (numOfWorkers - 1)) + 1;
-
-#ifdef DEBUG
-  printf("Worker %d %d\n", processID, NumberOfLocalTrees);
-#endif
-  /* re-initialize adfe->rapidBoot, otherwise the workers will be doing the exact same replicates */
-
-  adef->rapidBoot = (long)gettimeSrand();
-
-  /* the one below is kind of an ugly fix, but who cares */
-
-  tr->treeID = NumberOfLocalTrees * (processID - 1);
-
-  	  
-  {
-    int i, n, sites, bestIndex, model, bootstrapsPerformed;
-    double loopTime = 0.0; 
-    int      *originalRateCategories;
-    int      *originalInvariant;
-    int      slowSearches, fastEvery = 5;
-    topolRELL_LIST *rl;  
-    double bestLH, mlTime;  
-    long radiusSeed = adef->rapidBoot;
-    FILE *infoFile, *f;
-    char bestTreeFileName[1024];  
-    modelParams *catParams   = (modelParams *)malloc(sizeof(modelParams));
-    modelParams *gammaParams = (modelParams *)malloc(sizeof(modelParams));
-
-    allocParams(catParams,   tr);
-    allocParams(gammaParams, tr);
-   
-    n = NumberOfLocalTrees;   
-
-    rl = (topolRELL_LIST *)malloc(sizeof(topolRELL_LIST));
-    initTL(rl, tr, n);
-     
-    originalRateCategories = (int*)malloc(tr->cdta->endsite * sizeof(int));
-    originalInvariant      = (int*)malloc(tr->cdta->endsite * sizeof(int));
-
-    sites = tr->cdta->endsite;             
-
-    if(tr->rateHetModel == GAMMA || tr->rateHetModel == GAMMA_I)
-      {       
-	tr->rateHetModel = CAT;		
-	
-	initModel(tr, tr->rdta, tr->cdta, adef);                
-      }
- 
-    for(i = 0; i < n; i++)
-      {                
-	tr->checkPointCounter = 0;
-	
-	loopTime = gettime();      
-	
-	if(i % 10 == 0)
-	  {
-	    if(i > 0)
-	      {	       
-		reductionCleanup(tr, originalRateCategories, originalInvariant);
-	      }
-	    
-	    makeParsimonyTree(tr, adef);
-	    
-	    tr->likelihood = unlikely;
-	    if(i == 0)
-	      {
-		double t;
-		
-		onlyInitrav(tr, tr->start);
-		
-		treeEvaluate(tr, 1);	     	     
-		
-		t = gettime();    
-		
-		modOpt(tr, adef, FALSE, 5.0);	     		
-		memcpy(originalRateCategories, tr->cdta->rateCategory, sizeof(int) * tr->cdta->endsite);
-		memcpy(originalInvariant,      tr->invariant,          sizeof(int) * tr->cdta->endsite);
-
-		if(adef->bootstrapBranchLengths)
-		  {
-		    storeParams(catParams, tr);
-		    assert(tr->cdta->endsite == tr->originalCrunchedLength);
-		    catToGamma(tr, adef);
-		    modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);
-		    storeParams(gammaParams, tr);
-		    gammaToCat(tr);
-		    loadParams(catParams, tr);		  
-		  }
-	      }	  	  
-	  }
-
-	computeNextReplicate(tr, &adef->rapidBoot, originalRateCategories, originalInvariant, TRUE);       
-	resetBranches(tr);
-	
-	evaluateGenericInitrav(tr, tr->start);    
-	
-	treeEvaluate(tr, 1);    	             
-	
-	computeBOOTRAPID(tr, adef, &radiusSeed);                        	  
-	saveTL(rl, tr, i);
-      
-	if(adef->bootstrapBranchLengths)
-	  {
-	    double lh = tr->likelihood;
-	    int    endsite;
-	    
-	    loadParams(gammaParams, tr);
-	    
-	    
-	    endsite = tr->cdta->endsite;
-	    tr->cdta->endsite = tr->originalCrunchedLength;
-	    catToGamma(tr, adef);
-	    tr->cdta->endsite = endsite;
-	    
-	    resetBranches(tr);
-	    treeEvaluate(tr, 2.0);
-	    
-	    endsite = tr->cdta->endsite;
-	    tr->cdta->endsite = tr->originalCrunchedLength;
-	    gammaToCat(tr);
-	    tr->cdta->endsite = endsite;	 	    
-	    
-	    loadParams(catParams, tr);
-	    	    
-	    tr->likelihood = lh;
-	  }
-      
-
-	loopTime = gettime() - loopTime;
-	sendTree(tr, adef, loopTime, TRUE, BS_TREE);	
-     
-	if(adef->bootStopping)
-	  {
-	    assert(0);
-	    /*bootStopIt = bootStop(tr, b, i, &pearsonAverage);*/
-	  }
-	tr->treeID = tr->treeID + 1;
-      }  
- 
-    bootstrapsPerformed = i;
-        
-    if(!adef->allInOne)
-      {       	
-	MPI_Recv(&dummy, 1, MPI_INT, 0, FINALIZE, MPI_COMM_WORLD, &msgStatus);
-	MPI_Finalize();	 
-	exit(0);
-      }
-    
-    freeParams(catParams, tr);
-    free(catParams);
-
-    freeParams(gammaParams, tr);
-    free(gammaParams);
-
-    tr->treeID = NumberOfLocalTrees * (numOfWorkers - 1) + (processID - 1);
-   
-    mlTime = gettime();
-  
-#ifdef DEBUG
-    printf("\nWorker %d Starting ML Search ...\n\n", processID);   
-#endif
-
-    reductionCleanup(tr, originalRateCategories, originalInvariant);    
- 
-    catToGamma(tr, adef);     	   
-    
-    restoreTL(rl, tr, 0);
-
-    resetBranches(tr);
-    
-    evaluateGenericInitrav(tr, tr->start);   
-    
-    modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);
-    
-    evaluateGenericInitrav(tr, tr->start);
-    
-    categorizeGeneric(tr, tr->start);        
-    
-    gammaToCat(tr);      
-         
-    fastEvery = 5;    
-
-    for(i = 0; i < bootstrapsPerformed; i++)
-      {            
-	rl->t[i]->likelihood = unlikely;
-	
-	if(i % fastEvery == 0)
-	  {	 
-	    restoreTL(rl, tr, i); 	 	    	   
-	    
-	    resetBranches(tr);
-
-	    evaluateGenericInitrav(tr, tr->start);
-	    
-	    treeEvaluate(tr, 1); 		 
-	    
-	    optimizeRAPID(tr, adef);	  		
-	    saveTL(rl, tr, i);      
-	  }    
-      }     
-
-#ifdef DEBUG  
-    printf("Worker %d Fast ML optimization finished\n\n", processID);
-#endif
-   
-    qsort(&(rl->t[0]), bootstrapsPerformed, sizeof(topolRELL*), compareTopolRell);
-     
-    catToGamma(tr, adef);  
-    
-    restoreTL(rl, tr, 0);
-
-    resetBranches(tr);
-    
-    evaluateGenericInitrav(tr, tr->start); 
-    
-    modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);
-    
-    evaluateGenericInitrav(tr, tr->start);
-    
-    categorizeGeneric(tr, tr->start);   
-    
-    gammaToCat(tr);    
-  
-    slowSearches = bootstrapsPerformed / 5;
-    if(bootstrapsPerformed % 5 != 0)
-      slowSearches++;
-
-    slowSearches  = MIN(slowSearches, 10); 
-
-    for(i = 0; i < slowSearches; i++)
-      {           
-	restoreTL(rl, tr, i);     
-	rl->t[i]->likelihood = unlikely;
-	
-	evaluateGenericInitrav(tr, tr->start);
-	
-	treeEvaluate(tr, 1.0);   
-	thoroughOptimization(tr, adef, rl, i);             
-      }
- 
-#ifdef DEBUG
-    printf("Worker %d Slow ML optimization finished\n\n", processID);
-#endif     
-    catToGamma(tr, adef);    
-    
-    bestIndex = -1;
-    bestLH = unlikely;
-    
-    for(i = 0; i < slowSearches; i++)
-      {      
-	restoreTL(rl, tr, i);
-	resetBranches(tr);
-
-	evaluateGenericInitrav(tr, tr->start);
-	
-	treeEvaluate(tr, 2);
-#ifdef DEBUG	
-	printf("Worker %d Slow ML Search %d Likelihood: %f\n", processID, i, tr->likelihood);
-#endif	
-	if(tr->likelihood > bestLH)
-	  {
-	    bestLH = tr->likelihood;
-	    bestIndex = i;
-	  }
-      }
-    
-    restoreTL(rl, tr, bestIndex);
-    resetBranches(tr);
-
-    evaluateGenericInitrav(tr, tr->start);
-    
-    treeEvaluate(tr, 2); 
-    
-    Thorough = 1;
-    tr->doCutoff = FALSE;  
-    
-    treeOptimizeThorough(tr, 1, 10);
-    modOpt(tr, adef, TRUE, adef->likelihoodEpsilon);
-
-    sendTree(tr, adef, loopTime, TRUE, ML_TREE);
-   
-    while(1)
-      {
-	MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &msgStatus);
-	switch(msgStatus.MPI_TAG)
-	  {
-	  case FINALIZE:	
-	    MPI_Recv(&dummy, 1, MPI_INT, 0, FINALIZE, MPI_COMM_WORLD, &msgStatus);
-	    MPI_Finalize();  
-	    exit(0);
-	    break;
-	  case PRINT_TREE:
-	    MPI_Recv(&dummy, 1, MPI_INT, 0, PRINT_TREE, MPI_COMM_WORLD, &msgStatus);
-#ifdef DEBUG
-	    printf("Ox malaka eimai o %d kai prepi na printaro to dentro %f re pousti \n", processID, tr->likelihood);
-#endif
-	    infoFile = myfopen(infoFileName, "ab"); 
-	    
-	    printf("\nFinal ML Optimization Likelihood: %f\n", tr->likelihood);
-	    fprintf(infoFile, "\nFinal ML Optimization Likelihood: %f\n", tr->likelihood);
-	    
-	    printf("\nModel Information:\n\n");
-	    fprintf(infoFile, "\nModel Information:\n\n");
-	    
-	    for(model = 0; model < tr->NumberOfModels; model++)		    		    
-	      {
-		double tl;
-		char typeOfData[1024];
-		
-		switch(tr->partitionData[model].dataType)
-		  {
-		  case AA_DATA:
-		    strcpy(typeOfData,"AA");
-		    break;
-		  case DNA_DATA:
-		    strcpy(typeOfData,"DNA");
-		    break;
-		  default:
-		    assert(0);
-		  }
-		
-		fprintf(infoFile, "Model Parameters of Partition %d, Name: %s, Type of Data: %s\n", 
-			model, tr->partitionData[model].partitionName, typeOfData);
-		fprintf(infoFile, "alpha: %f\n", tr->partitionData[model].alpha);
-		
-		printf("Model Parameters of Partition %d, Name: %s, Type of Data: %s\n", 
-		       model, tr->partitionData[model].partitionName, typeOfData);
-		printf("alpha: %f\n", tr->partitionData[model].alpha);
-		
-		if(adef->useInvariant)
-		  {
-		    fprintf(infoFile, "invar: %f\n", tr->partitionData[model].propInvariant);    
-		    printf("invar: %f\n", tr->partitionData[model].propInvariant);    
-		  }
-		
-		if(adef->perGeneBranchLengths)
-		  tl = treeLength(tr, model);
-		else
-		  tl = treeLength(tr, 0);
-		
-		fprintf(infoFile, "Tree-Length: %f\n", tl);    
-		printf("Tree-Length: %f\n", tl);       
-		
-		switch(tr->partitionData[model].dataType)
-		  {
-		  case AA_DATA:
-		    break;
-		  case DNA_DATA:
-		    {
-		      int 
-			k,
-			states = tr->partitionData[model].states,
-			rates = ((states * states - states) / 2);
-		      
-		      char 
-			*names[6] = {"a<->c", "a<->g", "a<->t", "c<->g", "c<->t", "g<->t"};	 
-		      
-		      for(k = 0; k < rates; k++)			    
-			{
-			  fprintf(infoFile, "rate %s: %f\n", names[k], tr->initialRates_DNA[model  + k]);			    
-			  printf("rate %s: %f\n", names[k], tr->initialRates_DNA[model  + k]);
-			}		      		     
-		    }      
-		    break;
-		  default:
-		    assert(0);
-		  }
-		
-		fprintf(infoFile, "\n");
-		printf("\n");
-	      }		    		  
-	    
-	    fclose(infoFile); 
-	    
-	    strcpy(bestTreeFileName, workdir); 
-	    strcat(bestTreeFileName, "RAxML_bestTree.");
-	    strcat(bestTreeFileName,         run_id);
-	    
-	    Tree2String(tr->tree_string, tr, tr->start->back, TRUE, TRUE, FALSE, FALSE, TRUE, adef, SUMMARIZE_LH, FALSE);
-	    f = myfopen(bestTreeFileName, "wb");
-	    fprintf(f, "%s", tr->tree_string);
-	    fclose(f);
-
-	    if(adef->perGeneBranchLengths)
-	      printTreePerGene(tr, adef, bestTreeFileName, "w");
-	    
-	    infoFile = myfopen(infoFileName, "ab"); 
-	    
-	    
-	    printf("\nDrawing Bootstrap Support Values on best-scoring ML tree ...\n\n");
-	    fprintf(infoFile, "Drawing Bootstrap Support Values on best-scoring ML tree ...\n\n");  
-	    
-	    fclose(infoFile);
-	    
-	    freeTL(rl, tr);   
-	    free(rl);       
-	    
-	    calcBipartitions(tr, adef, bestTreeFileName, bootstrapFileName);  
-	     
-	    
-
-	    MPI_Send(&dummy, 1, MPI_INT, 0, I_PRINTED_IT, MPI_COMM_WORLD);
-	    break;
-	  default:
-	    assert(0);
-	  }
-      }
-  }
-}
-
-
-void doAllInOne(tree *tr, analdef *adef)
-{
-  if(processID == 0)
-    allInOneMaster(tr, adef);
-  else
-    allInOneWorker(tr, adef);
-}
-
-
-#endif

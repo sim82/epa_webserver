@@ -133,7 +133,7 @@ rollover:                      display   yes
 color_according_to_species:    display   yes
 color_according_to_annotation: display   no
 show_node_names:               display   yes
-show_gene_names                display   yes
+show_gene_names                display   no
 show_gene_symbols              display   yes
 show_sequence_acc              display   no
 show_taxonomy_code:            display   yes
@@ -169,6 +169,7 @@ click_to: paste_subtree        display
 click_to: delete               display
 click_to: add_new_node         display
 click_to: edit_node_data       display
+click_to: display_branch_data  display
 
 #   Default click-to option (any of the above if set to "display")
 default_click_to: display_node_data

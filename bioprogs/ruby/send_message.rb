@@ -5,6 +5,12 @@ require 'net/smtp'
 require "#{File.dirname(__FILE__)}/../../config/environment.rb"
 SERVER_NAME = ENV['SERVER_NAME']
 
+### Main script that handles the messages sent by the contact formular on the webpage. It gets four command line parameters, 
+### -n name 
+### -e email
+### -s subject
+### -m message (words connected by "__")
+
 class SendMessage 
 
   def initialize(opts)
@@ -53,7 +59,7 @@ class SendMessage
     send_email
     
   end
-
+  ## send email to @email_addressesX, (Alexi,Simon,Denis)
   def send_email
     Net::SMTP.start('localhost', 25) do |smtp|
       smtp.open_message_stream("#{ENV['SERVER_NAME']}", @email_address1,@email_address2,@email_address3) do |f|

@@ -32,28 +32,22 @@
 #include <assert.h>
 #include <stdint.h>
 
-#ifdef PARALLEL
 
-#define COMPUTE_TREE 0
-#define TREE         1
-#define BS_TREE      2
-#define ML_TREE      3
-#define FINALIZE     4
-#define JOB_REQUEST  5
-#define PRINT_TREE   6
-#define I_PRINTED_IT 7
+#ifdef _USE_PTHREADS
+
+#include <pthread.h>
 
 #endif
 
 
-
-#define smoothings     32         /* maximum smoothing passes through tree */
-#define iterations     10         /* maximum iterations of iterations per insert */
-#define newzpercycle   1          /* iterations of makenewz per tree traversal */
-#define nmlngth        256        /* number of characters in species name */
-#define deltaz         0.00001    /* test of net branch length change in update */
-#define defaultz       0.9        /* value of z assigned as starting point */
-#define unlikely       -1.0E300   /* low likelihood for initialization */
+#define MAX_TIP_EV     0.999999999 /* max tip vector value, sum of EVs needs to be smaller than 1.0, otherwise the numerics break down */
+#define smoothings     32          /* maximum smoothing passes through tree */
+#define iterations     10          /* maximum iterations of iterations per insert */
+#define newzpercycle   1           /* iterations of makenewz per tree traversal */
+#define nmlngth        256         /* number of characters in species name */
+#define deltaz         0.00001     /* test of net branch length change in update */
+#define defaultz       0.9         /* value of z assigned as starting point */
+#define unlikely       -1.0E300    /* low likelihood for initialization */
 
 
 #define SUMMARIZE_LENGTH -3
@@ -62,6 +56,7 @@
 
 #define MASK_LENGTH 32
 #define VECTOR_LENGTH (NUM_BRANCHES / MASK_LENGTH)
+#define GET_BITVECTOR_LENGTH(x) ((x % MASK_LENGTH) ? (x / MASK_LENGTH + 1) : (x / MASK_LENGTH))
 
 #define zmin       1.0E-15  /* max branch prop. to -log(zmin) (= 34) */
 #define zmax (1.0 - 1.0E-6) /* min branch prop. to 1.0-zmax (= 1.0E-6) */
@@ -133,7 +128,19 @@
 #define TT_MIN       0.0000001
 #define TT_MAX       1000000.0
 
-#define FREQ_MIN     0.000001 /* TO AVOID NUMERICAL PROBLEMS WHEN FREQ == 0 IN PARTITIONED MODELS, ESPECIALLY WITH AA */
+#define FREQ_MIN     0.001
+
+/* 
+   previous values between 0.001 and 0.000001
+
+   TO AVOID NUMERICAL PROBLEMS WHEN FREQ == 0 IN PARTITIONED MODELS, ESPECIALLY WITH AA 
+   previous value of FREQ_MIN was: 0.000001, but this seemed to cause problems with some 
+   of the 7-state secondary structure models with some rather exotic small toy test datasets,
+   on the other hand 0.001 caused problems with some of the 16-state secondary structure models
+
+   For some reason the frequency settings seem to be repeatedly causing numerical problems
+   
+*/
 
 #define ITMAX 100
 
@@ -169,13 +176,12 @@ extern double exp_approx (double x);
 #define PointGamma(prob,alpha,beta)  PointChi2(prob,2.0*(alpha))/(2.0*(beta))
 
 #define programName        "RAxML"
-#define programVersion     "7.2.6"
-#define programDate        "February 2010"
+#define programVersion     "7.2.7"
+#define programDate        "August 2010"
 
 
 #define  TREE_EVALUATION            0
 #define  BIG_RAPID_MODE             1
-#define  PARALLEL_MODE              2
 #define  CALC_BIPARTITIONS          3
 #define  SPLIT_MULTI_GENE           4
 #define  CHECK_ALIGNMENT            5
@@ -195,6 +201,9 @@ extern double exp_approx (double x);
 #define  MESH_TREE_SEARCH           23
 #define  FAST_SEARCH                24
 #define  MORPH_CALIBRATOR_PARSIMONY 25
+#define  EPA_ROGUE_TAXA             26           
+#define  EPA_SITE_SPECIFIC_BIAS     27
+#define  SH_LIKE_SUPPORTS           28
 
 #define M_GTRCAT         1
 #define M_GTRGAMMA       2
@@ -312,6 +321,7 @@ extern double exp_approx (double x);
 
 typedef  int boolean;
 
+
 typedef struct {
   double lh;
   int tree;
@@ -322,6 +332,7 @@ struct ent
 {
   unsigned int *bitVector;
   unsigned int *treeVector;
+  unsigned int amountTips;
   int *supportVector;
   unsigned int bipNumber;
   unsigned int bipNumber2;
@@ -541,6 +552,7 @@ typedef struct {
   int     mxtips;
   int             **expVector;
   double          **xVector;
+  int             *xSpaceVector;
   float           **xVector_FLOAT;
   unsigned char            **yVector;
   parsimonyVector **pVector;
@@ -581,6 +593,7 @@ typedef struct {
   float *wr2_FLOAT;
 
   unsigned int    *globalScaler;
+  double          *globalScalerDouble;
   int    *wgt;
   int    *invariant;
   int    *rateCategory;
@@ -589,6 +602,13 @@ typedef struct {
   boolean nonGTR;
   double alpha;
   double propInvariant;
+
+  int gapVectorLength;
+  unsigned int *gapVector;
+  double *gapColumn;
+
+  size_t initialGapVectorSize;
+
 } pInfo;
 
 
@@ -608,8 +628,15 @@ typedef struct
   lhEntry *entries;
 } lhList;
 
+
+typedef struct List_{
+  void *value; 			
+  struct List_ *next; 
+} List;
+
 typedef  struct  {
- 
+  boolean useGappedImplementation;
+  boolean saveMemory;
   
   int    *resample;
 
@@ -619,14 +646,14 @@ typedef  struct  {
   int    branchCounter;
 
 #ifdef _USE_PTHREADS    
+  /*
+    do we need this stuff ?
+  */
   unsigned int **bitVectors;
   hashtable *h;
-  int bitVectorLength;
-  branchInfo *threadBranchInfo;    
-  nodeptr nodep_scratch;
-
  
- 
+    
+   
 
   double *temporaryVector;
   parsimonyVector *temporaryParsimonyVector;
@@ -677,11 +704,8 @@ typedef  struct  {
   unsigned int *parsimonyScore; 
   int *ti;
   unsigned int compressedWidth;
-
-
-  char *treeBuffer;
-  char **treeStarts;  
-  int numberOfTrees;
+  
+  int numberOfTrees; 
 
   stringHashtable  *nameHash;
 
@@ -832,6 +856,43 @@ typedef  struct  {
   double lzr[NUM_BRANCHES];
   double lzi[NUM_BRANCHES];
 
+ 
+  int mr_thresh;
+#ifdef _USE_PTHREADS
+
+  /* stuff for parallel MRE */
+
+  /* added by aberer */  
+  entry **sbi;
+  entry **sbw;
+  int *len;   
+
+  /* mre */
+  int sectionEnd;
+  int bipStatusLen;
+  entry **entriesOfSection;
+  int recommendedAmountJobs;
+ 
+
+  /* used for printBip */
+  boolean *hasAncestor; 
+  List **listOfDirectChildren;
+  unsigned int bitVectorLength;                 /* we now need this also in sequential mode */
+  entry **consensusBips;
+  int consensusBipLen;          /* also used in mre */  
+  int maxBips;
+  int *bipStatus;
+
+
+  /* for parallel hash insert */
+  pthread_mutex_t** mutexesForHashing; 
+
+
+ 
+
+#endif
+
+
 } tree;
 
 
@@ -948,7 +1009,9 @@ typedef  struct {
   boolean       readTaxaOnly;
   int           meshSearch;  
   boolean       veryFast;
-  boolean       shSupports;
+  boolean       useBinaryModelFile;
+  boolean       leaveDropMode;
+  int           slidingWindowSize;
 } analdef;
 
 typedef struct 
@@ -978,9 +1041,21 @@ typedef struct
 
 } partitionLengths;
 
-
-
 /****************************** FUNCTIONS ****************************************************/
+
+extern void computePlacementBias(tree *tr, analdef *adef);
+
+extern int lookupWord(char *s, stringHashtable *h);
+
+extern void getDataTypeString(tree *tr, int model, char typeOfData[1024]);
+
+extern unsigned int genericBitCount(unsigned int* bitVector, unsigned int bitVectorLength);
+extern int countTips(nodeptr p, int numsp);
+extern entry *initEntry(void);
+extern void computeRogueTaxa(tree *tr, char* treeSetFileName, analdef *adef);
+extern unsigned int precomputed16_bitcount(unsigned int n);
+
+
 extern double evaluateGenericMulti (tree *tr, nodeptr p, int model);
 extern void setupPointerMesh(tree *tr);
 extern void determineFullTraversalMulti(nodeptr p, tree *tr);
@@ -991,7 +1066,7 @@ extern void getxsnode (nodeptr p, int model);
 extern void findNext(nodeptr p, tree *tr, nodeptr *result);
 
 
-/***************************************************************************************************/
+
 
 extern partitionLengths * getPartitionLengths(pInfo *p);
 extern boolean getSmoothFreqs(int dataType);
@@ -1030,7 +1105,7 @@ extern void classifyML(tree *tr, analdef *adef);
 extern void doBootstrap ( tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta );
 extern void doInference ( tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta );
 extern void resetBranches ( tree *tr );
-extern void modOpt ( tree *tr, analdef *adef , boolean resetModel, double likelihoodEpsilon);
+extern void modOpt ( tree *tr, analdef *adef , boolean resetModel, double likelihoodEpsilon, boolean testGappedImplementation);
 
 
 extern void parsePartitions ( analdef *adef, rawdata *rdta, tree *tr);
@@ -1087,7 +1162,7 @@ extern boolean treeEvaluatePartition ( tree *tr, double smoothFactor, int model 
 extern void meshTreeSearch(tree *tr, analdef *adef, int thorough);
 
 extern void initTL ( topolRELL_LIST *rl, tree *tr, int n );
-extern void freeTL ( topolRELL_LIST *rl , tree *tr);
+extern void freeTL ( topolRELL_LIST *rl);
 extern void restoreTL ( topolRELL_LIST *rl, tree *tr, int n );
 extern void resetTL ( topolRELL_LIST *rl );
 extern void saveTL ( topolRELL_LIST *rl, tree *tr, int index );
@@ -1100,21 +1175,19 @@ extern boolean freeBestTree ( bestlist *bt );
 
 
 extern char *Tree2String ( char *treestr, tree *tr, nodeptr p, boolean printBranchLengths, boolean printNames, boolean printLikelihood, 
-			   boolean rellTree, boolean finalPrint, analdef *adef, int perGene, boolean branchLabelSupport);
+			   boolean rellTree, boolean finalPrint, analdef *adef, int perGene, boolean branchLabelSupport, boolean printSHSupport);
 extern void printTreePerGene(tree *tr, analdef *adef, char *fileName, char *permission);
 
 
 
-extern boolean treeReadLen ( FILE *fp, tree *tr, analdef *adef );
-extern int treeReadTopologyOnly ( FILE *fp, tree *tr, boolean readBranches, boolean readNodeLabels);
-extern int treeReadTopologyString (const char *fp, tree *tr, boolean readBranches, boolean readNodeLabels, int *position, boolean topologyOnly, analdef *adef, boolean completeTree);
+extern int treeReadLen (FILE *fp, tree *tr, boolean readBranches, boolean readNodeLabels, boolean topologyOnly, analdef *adef, boolean completeTree);
 extern boolean treeReadLenMULT ( FILE *fp, tree *tr, analdef *adef );
 
 extern void getStartingTree ( tree *tr, analdef *adef );
 extern double treeLength(tree *tr, int model);
 
 extern void computeBootStopOnly(tree *tr, char *bootStrapFileName, analdef *adef);
-extern boolean bootStop(tree *tr, hashtable *h, int numberOfTrees, double *pearsonAverage, unsigned int **bitVectors, int treeVectorLength, int vectorLength);
+extern boolean bootStop(tree *tr, hashtable *h, int numberOfTrees, double *pearsonAverage, unsigned int **bitVectors, int treeVectorLength, unsigned int vectorLength);
 extern void computeConsensusOnly(tree *tr, char* treeSetFileName, analdef *adef);
 extern double evaluatePartialGeneric (tree *, int i, double ki, int _model);
 extern double evaluateGeneric (tree *tr, nodeptr p);
@@ -1192,8 +1265,8 @@ extern void compareBips(tree *tr, char *bootStrapFileName, analdef *adef);
 extern void computeRF(tree *tr, char *bootStrapFileName, analdef *adef);
 
 
-extern  unsigned int **initBitVector(tree *tr, int *vectorLength);
-extern hashtable *copyHashTable(hashtable *src, int vectorLength);
+extern  unsigned int **initBitVector(tree *tr, unsigned int *vectorLength);
+extern hashtable *copyHashTable(hashtable *src, unsigned int vectorLength);
 extern hashtable *initHashTable(unsigned int n);
 extern void cleanupHashTable(hashtable *h, int state);
 extern double convergenceCriterion(hashtable *h, int mxtips);
@@ -1207,15 +1280,27 @@ extern void printBothOpen(const char* format, ... );
 extern void printBothOpenMPI(const char* format, ... );
 extern void initRateMatrix(tree *tr);
 
-extern void bitVectorInitravSpecial(unsigned int **bitVectors, nodeptr p, int numsp, int vectorLength, hashtable *h, int treeNumber, int function, branchInfo *bInf,
+extern void bitVectorInitravSpecial(unsigned int **bitVectors, nodeptr p, int numsp, unsigned int vectorLength, hashtable *h, int treeNumber, int function, branchInfo *bInf,
 				    int *countBranches, int treeVectorLength, boolean traverseOnly, boolean computeWRF);
 
 extern int getIncrement(tree *tr, int model);
 
 extern void fastSearch(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta);
+extern void shSupports(tree *tr, analdef *adef, rawdata *rdta, cruncheddata *cdta);
 
-extern void loadTreeFileToMemory(tree *tr, char *fileName, analdef *adef);
-extern void freeTreeFileInMemory(tree *tr);
+extern FILE *getNumberOfTrees(tree *tr, char *fileName, analdef *adef);
+
+extern void writeBinaryModel(tree *tr);
+extern void readBinaryModel(tree *tr);
+extern void treeEvaluateRandom (tree *tr, double smoothFactor);
+extern void treeEvaluateProgressive(tree *tr);
+
+extern void testGapped(tree *tr);
+
+extern boolean issubset(unsigned int* bipA, unsigned int* bipB, unsigned int vectorLen);
+extern boolean compatible(entry* e1, entry* e2, unsigned int bvlen);
+
+extern void computeRogueTaxaEPA(tree *tr);
 
 #ifdef _IPTOL
 extern void writeCheckpoint();
@@ -1244,6 +1329,18 @@ extern double evalCL(tree *tr, double *x2, int *ex2, unsigned char *tip, double 
 
 extern void testInsertThoroughIterative(tree *tr, int branchNumber, boolean bootstrap);
 
+
+/* parallel MRE stuff */
+
+#define MRE_POSSIBLE_CANDIDATE  1
+#define MRE_EXCLUDED  2
+#define MRE_ADDED  3    
+#define SECTION_CONSTANT 1
+#define MRE_MIN_AMOUNT_JOBS_PER_THREAD 5
+
+
+/* work tags for parallel regions */
+
 #define THREAD_NEWVIEW                0
 #define THREAD_EVALUATE               1
 #define THREAD_MAKENEWZ               2
@@ -1268,8 +1365,7 @@ extern void testInsertThoroughIterative(tree *tr, int branchNumber, boolean boot
 #define THREAD_GAMMA_TO_CAT           21
 #define THREAD_NEWVIEW_MASKED         22
 #define THREAD_COPY_PARAMS            26
-#define THREAD_PARSIMONY_RATCHET      27
-
+#define THREAD_PARSIMONY_RATCHET            27
 #define THREAD_INIT_EPA                     28
 #define THREAD_GATHER_LIKELIHOOD            29
 #define THREAD_INSERT_CLASSIFY              30
@@ -1280,15 +1376,30 @@ extern void testInsertThoroughIterative(tree *tr, int branchNumber, boolean boot
 #define THREAD_PREPARE_EPA_PARSIMONY        35
 #define THREAD_CLEANUP_EPA_PARSIMONY        36
 #define THREAD_CONTIGUOUS_REPLICATE         37
-
-#define THREAD_INIT_DRAW_BIPARTITIONS       38
-#define THREAD_FREE_DRAW_BIPARTITIONS       39  
-#define THREAD_DRAW_BIPARTITIONS            40
+#define THREAD_USE_GAPPED                   38
+#define THREAD_PREPARE_BIPS_FOR_PRINT       39
+#define THREAD_MRE_COMPUTE                  40
 
 /*
-  #define THREAD_FAST_EVALUATE_PARSIMONY        52
-  #define THREAD_FAST_NEWVIEW_PARSIMONY         53
-  #define THREAD_INIT_FAST_PARSIMONY            54
+
+parallel tree parsing abandoned ...
+
+  #define THREAD_FILL_HASH_FOR_CONSENSUS      41
+
+parallel dropset comp. currently doesn't scale well 
+
+  #define THREAD_FIND_BEST_DROPSET            42
+  #define THREAD_CALC_DROPSETS                43
+
+*/
+
+/*
+  Pthreads-based MP computations don't really scale for the 
+  SSE3-based optimized version 
+
+  #define THREAD_FAST_EVALUATE_PARSIMONY        XX
+  #define THREAD_FAST_NEWVIEW_PARSIMONY         XX
+  #define THREAD_INIT_FAST_PARSIMONY            XX
 */
 
 typedef struct
