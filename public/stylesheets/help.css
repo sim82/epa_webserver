@@ -4,6 +4,7 @@ body {
     min-width: 800px;
     font-family:verdana, arial,sans-serif;
     font-size:0.9em;
+    background-color:#f6f7f8;
    
 }
 
@@ -18,9 +19,16 @@ h2 {
 }
 
 h3 {
+    font-size:1.4em;
+    font-style:bold;
+    text-decoration:underline;
+}
+h4 {
     font-size:1.1em;
     font-style:bold;
+    font-style:italic;
 }
+
 
 p {
     padding-left:1em;
@@ -35,4 +43,12 @@ a:hover{
     text-decoration:none;
     color:#ffffff;
     background-color:#e2ecf3;
+}
+
+#part{
+    padding:0.2em;
+    padding-left: 1em;
+    border: 1px solid  #4988b5;
+    background-color:#ffffff;
+    margin: 5px;
 }
