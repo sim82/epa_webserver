@@ -385,8 +385,9 @@ class RaxmlController < ApplicationController
 
   def allJobs
     getInfo
-    jobs_email = params[:email]
-    rax =  Raxml.find(:all, :conditions => ["email = #{jobs_email}"])
+    @jobs_email = params[:email]
+    
+    rax =  Raxml.find(:all, :conditions => ["email = #{@jobs_email}"])
     @jobids=[]
     @jobdescs=[]
     rax.each do |r| 
@@ -396,11 +397,31 @@ class RaxmlController < ApplicationController
           @jobdescs << "";
         else
           @jobids << r.jobid
-          @jobdescs << "<br/>"+r.job_description.gsub(/__/," ")
+          @jobdescs << r.job_description.gsub(/__/," ")
         end
       end
     end
   end
+
+  def deleteOldJobs
+    jobs_email = params[:email][:email]
+    if !params[:jobs].nil?
+      params[:jobs].each do |box|
+        no = box[0]
+        value = box[1].to_i
+        if value > 0
+          jobid = value
+          rax = Raxml.find(:first,:conditions => ["jobid = #{jobid}"])
+          Raxml.destroy(rax.id)
+          command = "rm -r #{RAILS_ROOT}/public/jobs/#{jobid}"
+          system command
+        end
+      end
+    end
+    redirect_to :action => "allJobs" , :email =>  "#{jobs_email}"
+
+  end
+
   
   def contact
     getInfo
