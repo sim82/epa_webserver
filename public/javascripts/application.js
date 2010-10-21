@@ -50,5 +50,13 @@ function hideTooltip(id)
    {
       document.getElementById(id).style.visibility = "hidden";
    }
-        
+
+function isEven(n){
+    if (n % 2 > 0){
+        document.getElementById(n).style.backgroundColor= "#ffffff";
+    }
+    else{
+        document.getElementById(n).style.backgroundColor= "#e2ecf3";
+    }
+}        
 

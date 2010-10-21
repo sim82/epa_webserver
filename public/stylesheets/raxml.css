@@ -144,6 +144,25 @@ a:hover{
     background-image: url(/images/header.png);
 }
 
+#jobs td{  
+    list-style-type:none;
+}
+#jobs a{
+    display:block;
+    text-decoration:none;
+    color:#4988b5;
+}
+#jobs td a:hover {
+    display:block;
+    text-decoration:none;
+    color:black;
+    background-color:#e2ecf3;
+}
+
+
+
+
+
 #main_wrapper{
     margin-left:auto;
     margin-right:auto;
