@@ -45,6 +45,7 @@ class RaxmlAndSendEmail
     @test_mapping = false
     options_parser!(opts)
     @jobpath = "#{RAILS_ROOT}/public/jobs/#{@id}/"
+    buildRightTree!
     if @multi_gene_alignment
       if @use_clustering
         useUClust
@@ -129,6 +130,17 @@ class RaxmlAndSendEmail
       end
       i = i+1
     end
+  end
+
+  def buildRightTree!
+    Dir.glob("#{@jobpath}RAxML_originalLabelledTree.#{@id}.GENE*"){|file|
+      labeltree = file
+      reftree = "#{@jobpath}tree_file"
+      command = "#{RAILSS_ROOT}/bioprogs/java/treeMergeLengthsLabels.jar #{reftree} #{labeltree} > #{@jobpath}final_tree.tree"
+      system command
+      @raxml_options["-t"] =  "#{@jobpath}final_tree.tree"
+      break
+    }
   end
 
   def multiGeneAlignment
@@ -311,15 +323,7 @@ class RaxmlAndSendEmail
   end
 
   def convertTreefileToPhyloXML
-    treefile = ""
-    if @multi_gene_alignment
-      Dir.glob("#{@jobpath}RAxML_originalLabelledTree.#{@id}.GENE*"){|file|
-        treefile = file
-        break
-      }
-    else
-      treefile = "#{@jobpath}RAxML_originalLabelledTree.#{@id}"
-    end
+    treefile =  @raxml_options["-t"]
     command = "cd #{RAILS_ROOT}/bioprogs/java; java -jar convertToPhyloXML.jar #{treefile}"
     if @raxml_options["-x"].nil? # bootstrapping activated?
       file = @jobpath+"RAxML_classificationLikelihoodWeights."+@id
