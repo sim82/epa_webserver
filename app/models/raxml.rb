@@ -127,6 +127,10 @@ class Raxml < ActiveRecord::Base
     if self.mga.eql?("T")
       opts["-mga"] = ""
     end
+    cores = parseDescription(self.job_description)
+    if cores > 1
+      opts["-T"] = cores
+    end
     
     # Build shell file  
     path = "#{RAILS_ROOT}/public/jobs/#{id}"
@@ -165,6 +169,16 @@ class Raxml < ActiveRecord::Base
     puts command
     system command # if more traffic on the server is occuring (at this moment, the server can handle three parallel requests)  this should be submitted to the batch system
     return true
+  end
+
+  # check description for parallel instructions 
+  def parseDescription(desc)
+    if desc =~ /<\?(\d+)\?>/
+      puts "####"+$1
+      return $1.to_i
+    else
+      return 1
+    end
   end
 
 end

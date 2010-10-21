@@ -28,6 +28,7 @@ SERVER_NAME = ENV['SERVER_NAME']
 ### -useQ  flag if a file with unaligned reads is present
 ### -useCl flag clustering of the unaligned reads should be performed 
 ### -mga   flag for using the multigene alignment pipeline
+### -T     number of cores used for the parallel version of raxml
 
 class RaxmlAndSendEmail 
 
@@ -120,6 +121,9 @@ class RaxmlAndSendEmail
         @multi_gene_alignment = true
       elsif opts[i].eql?("-test_mapping")
         @test_mapping = true
+      elsif opts[i].eql?("-T")
+        @raxml_options["-T"] = opts[i+1]
+        i = i+1
       else
         raise "ERROR in options_parser!, unknown option #{opts[i]}!"
       end
@@ -293,10 +297,17 @@ class RaxmlAndSendEmail
   end
 
   def runRAxML
-    command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC-SSE3 "
-    @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
-    puts command
-    system command 
+    if @raxml_options["-T"].nil?
+      command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml/raxmlHPC-SSE3 "
+      @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
+      puts command
+      system command
+    else
+      command ="cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/raxml_parallel/raxmlHPC-PTHREADS-SSE3 "
+      @raxml_options.each_key  {|k| command = command + k + " " + @raxml_options[k] + " "}
+      puts command
+      system command
+    end
   end
 
   def convertTreefileToPhyloXML
