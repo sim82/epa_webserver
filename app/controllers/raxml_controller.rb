@@ -408,8 +408,8 @@ class RaxmlController < ApplicationController
     if !params[:jobs].nil?
       params[:jobs].each do |box|
         no = box[0]
-        value = box[1].to_i
-        if value > 0
+        value = box[1]
+        if value.size > 1  #if not marked it should be "0"
           jobid = value
           rax = Raxml.find(:first,:conditions => ["jobid = #{jobid}"])
           Raxml.destroy(rax.id)
