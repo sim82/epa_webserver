@@ -45,7 +45,6 @@ class RaxmlAndSendEmail
     @test_mapping = false
     options_parser!(opts)
     @jobpath = "#{RAILS_ROOT}/public/jobs/#{@id}/"
-    buildRightTree!
     if @multi_gene_alignment
       if @use_clustering
         useUClust
@@ -60,6 +59,7 @@ class RaxmlAndSendEmail
       end
       runRAxML
     end
+     buildRightTree!
     convertTreefileToPhyloXML
     if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
       send_email
@@ -133,10 +133,11 @@ class RaxmlAndSendEmail
   end
 
   def buildRightTree!
-    Dir.glob("#{@jobpath}RAxML_originalLabelledTree.#{@id}.GENE*"){|file|
+    Dir.glob("#{@jobpath}RAxML_originalLabelledTree.#{@id}*"){|file|
       labeltree = file
       reftree = "#{@jobpath}tree_file"
-      command = "#{RAILSS_ROOT}/bioprogs/java/treeMergeLengthsLabels.jar #{reftree} #{labeltree} > #{@jobpath}final_tree.tree"
+      command = "#{RAILS_ROOT}/bioprogs/java/treeMergeLengthsLabels.jar #{reftree} #{labeltree} > #{@jobpath}final_tree.tree"
+      puts command
       system command
       @raxml_options["-t"] =  "#{@jobpath}final_tree.tree"
       break
