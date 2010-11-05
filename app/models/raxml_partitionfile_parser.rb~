@@ -1,7 +1,0 @@
-class RaxmlPartitionfileParser
-
-  def initialize(stream)
-
-  end
-
-end
