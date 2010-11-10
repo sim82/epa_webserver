@@ -58,5 +58,12 @@ function isEven(n){
     else{
         document.getElementById(n).style.backgroundColor= "#e2ecf3";
     }
-}        
+}
 
+function noPlacementsHint(file){
+    if (file == "treefile_no_placements.phyloxml"){
+        alert("The results are too large, for this reason the treeviewer will only show a tree without any placements!\nYou can download the treeviewer on this page and try to run it on your local machine.");
+    }
+        
+
+}
