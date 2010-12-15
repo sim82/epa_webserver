@@ -59,7 +59,7 @@ class RaxmlAndSendEmail
       end
       runRAxML
     end
-     buildRightTree!
+    buildRightTree!
     convertTreefileToPhyloXML
     if @email_address  =~ /\A([^@\s])+@((?:[-a-z0-9]+\.)+[a-z]{2,})\Z/i
       send_email
@@ -331,14 +331,19 @@ class RaxmlAndSendEmail
       command = "#{command} #{file}  > #{@jobpath}treefile.phyloxml"
       puts command
       system command
-      return
     else
       file  = @jobpath+"RAxML_classification."+@id
       command = "#{command} #{file} #{@raxml_options["-N"]}> #{@jobpath}treefile.phyloxml"
       puts command
       system command
-      return
     end
+    # make empty placement file for the phyloxml converter
+    empty_file = "no_placements"
+    command = "cd #{@jobpath}; touch #{empty_file}; "
+    command = command + "cd #{RAILS_ROOT}/bioprogs/java; java -jar convertToPhyloXML.jar #{treefile} #{@jobpath+empty_file} > #{@jobpath}treefile_no_placements.phyloxml; rm  #{@jobpath+empty_file}"
+    puts command
+    system command
+    
   end
 
   def send_email

@@ -43,15 +43,17 @@ class RaxmlResultsParser
         @names << $1
       end
     }
-    
+
+    Dir.glob("#{RAILS_ROOT}/public/jobs/#{@job_id}/*.phyloxml"){|file| 
+      if file =~ /.+\/([\w_]+.phyloxml)$/
+        @files << file
+        @names << $1
+      end
+    }
 
     @files << "#{RAILS_ROOT}/public/jobs/#{@job_id}/tree_file"
     @names << "input_tree"
 
-    @files << "#{RAILS_ROOT}/public/jobs/#{@job_id}/treefile.phyloxml"
-    @names << "treefile.phyloxml"
-
-    
 
     
   end

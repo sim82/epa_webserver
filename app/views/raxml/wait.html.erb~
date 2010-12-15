@@ -1,9 +1,0 @@
-<!-- Autorefresh and call of action Check for Results -->
-<meta http-equiv="refresh" content="20" >
-Job is running! <br>
-Enter your email adress below and check your results later.<br>
-<% form_tag ({:action => 'saveEmail', :id => params[:id]},:multipart => true) do %>
-<p><label for="email">Email</label> : 
-  <%= text_field "email", "e", :size =>40 %></p> 
-<%= submit_tag "Use this Email" %>
-<% end%>

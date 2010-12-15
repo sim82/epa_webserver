@@ -270,12 +270,12 @@ class RaxmlController < ApplicationController
     if !(jobIsFinished?(@raxml.jobid))
       render :action => "wait"
     else
-      @raxml.update_attribute(:status,"done")
       redirect_to :action => "results" , :id => @raxml.jobid
     end
   end
 
   def jobIsFinished?(id)
+    @raxml = Raxml.find(:first, :conditions => ["jobid = #{id}"]) 
     path = "#{RAILS_ROOT}/public/jobs/#{id}/"
     finished = false
     Dir.glob(path+"submit.sh.*"){|file|
@@ -293,6 +293,7 @@ class RaxmlController < ApplicationController
         #    @raxml.update_attribute(:errorfile,file)
         #    return true
           if line =~ /^done!\s*$/
+            @raxml.update_attribute(:status,"done") 
             return true
           end
         end
@@ -310,6 +311,10 @@ class RaxmlController < ApplicationController
     collectCites(jobid)
     @ip_counter = 0;
     @submission_counter = 0;
+    @phyloxml_file ="treefile.phyloxml"
+    if File.size(RAILS_ROOT+"/public/jobs/"+jobid+"/"+@phyloxml_file) > 5000000
+      @phyloxml_file = "treefile_no_placements.phyloxml"
+    end
     getInfo
     rax =  Raxml.find(:first, :conditions => ["jobid = #{jobid}"])
     res  =  RaxmlResultsParser.new(rax.outfile)
@@ -390,6 +395,9 @@ class RaxmlController < ApplicationController
     rax =  Raxml.find(:all, :conditions => ["email = #{@jobs_email}"])
     @jobids=[]
     @jobdescs=[]
+    @time_left = []
+    time_now = Time.new
+    time = 60*60*24*7*2 #2 weeks
     rax.each do |r| 
       if jobIsFinished?(r.jobid)
         if r.job_description.eql?("") 
@@ -399,6 +407,38 @@ class RaxmlController < ApplicationController
           @jobids << r.jobid
           @jobdescs << r.job_description.gsub(/__/," ")
         end
+        e = r.created_at.to_s                                                                                                                              
+        if  e =~ /(\d+)-(\d+)-(\d+)\s*(\d+):(\d+):(\d+)/                 
+          year = $1.to_i
+          month = $2.to_i
+          day = $3.to_i
+          hour = $4.to_i
+          minutes = $5.to_i
+          seconds = $6.to_i
+          create_time = Time.mktime(year,month,day,hour,minutes,seconds)
+          sec_left =  time - (time_now.to_i - create_time.to_i)
+          minutes = sec_left.to_i/60
+          hours = minutes / 60
+          days = hours / 24
+          days = days+1
+          if days > 0
+            hours = hours % 24 
+            minutes = minutes % 60
+            if days > 1
+              @time_left << days.to_s+" days"
+            else
+              @time_left << days.to_s+" day"
+            end
+#          elsif hours > 0
+#            minutes = minutes % 60 
+#            @time_left << hours.to_s+"h : "+minutes.to_s+"m"
+#          else 
+#            @time_left << minutes.to_s+"m" 
+#          end
+          else
+            @time_left << "today"
+          end
+        end                                          
       end
     end
   end
