@@ -6,8 +6,20 @@ class RaxmlPartitionfileParser
     if args.size == 2  # args[0] = stream, args[1] = ali_length
       stream = args[0]
       ali_length = args[1]
-      @filename = stream.original_filename
-      @data = stream.readlines   
+      @filename = ""
+      @data = []
+      if stream.instance_of?(String) #because of testing
+        if stream =~ /\S+\/(\w+\.phylip)$/
+          @filename = $1
+        end
+        f = File.open(stream,'r')
+        @data = f.readlines
+        f.close
+      else
+        @filename = stream.original_filename
+        @data = stream.readlines 
+      end
+
       @valid_format = false
       @error  = ""
       @len = ali_length
@@ -34,7 +46,7 @@ class RaxmlPartitionfileParser
     @data.each do |line|
       if line =~ /^\s*$/
         
-      elsif  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+-\d+,)*(\s+\d+-\d+)$/ ||  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+-\d+\\\d+,)*(\s+\d+-\d+\\\d+)$/
+      elsif  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+\s*-\s*\d+\s*,)*(\s+\d+\s*-\s*\d+\s*)$/ ||  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+\s*-\s*\d+\\\d+,)*(\s+\d+\s*-\s*\d+\\\d+)$/
         @matrices << $1
         digits = line.scan(/\d+\-\d+/)
         digits.each do |dig|
