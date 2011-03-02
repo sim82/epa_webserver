@@ -7,8 +7,15 @@ class RaxmlTreefileParser
 attr_reader :format, :valid_format, :error ,:data
   def initialize(stream)
    # @filename = stream.original_filename
-    @filename ="file"
-    @data = stream.readlines 
+    @filename = "file" #because only a name for the treecheck is needed
+    @data = []
+    if stream.instance_of?(String) #because of testing
+      f = File.open(stream,'r')
+      @data = f.readlines
+      f.close
+    else
+      @data = stream.readlines 
+    end
     @format = "unk"
     @valid_format = false
     @error = ""

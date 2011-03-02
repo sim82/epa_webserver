@@ -129,24 +129,56 @@ attr_accessor :format
       
     elsif @format.eql?("sto")   
       seqs = Hash.new
+      local_names = Hash.new
       names = []
       phylip = []
       len = nil
       maxnlen = 0
-      @data.each do |line|
-        if  !(line =~ /^#/) && line =~ /^(\S+)\s+(\S+)\s*$/
+      i = 0
+      while i < @data.size 
+        line = @data[i]
+        if  !( line =~ /^#/) && line =~ /^(\S+)\s+(\S+)\s*$/
           name = $1
           seq = $2
-          if seqs[name].nil?
+          name.gsub!(/\|\*\|/, "\\|\\*\\|")
+          if @data[i+1] =~/^#=GR\s#{name}/  # in case there are reads that have the same name as the alignment sequences
+            name = name+"_GR_1"
+            if local_names[name].nil?
+              local_names[name] = 1
+            else
+              if name =~/(.+GR_)(\d+)/
+                n = local_names[name]+1
+                local_names[name] =  n
+                name = $1+(n).to_s
+                local_names[name] =  n
+              else
+                raise "Error"
+              end
+            end
+              
+            if seqs[name].nil?
+              seqs[name] = seq.gsub( /\./, "-" )
+              names << name
+            else
+              seqs[name] = seqs[name]+seq.gsub( /\./, "-" )
+            end
+          elsif seqs[name].nil?
             seqs[name] = seq.gsub( /\./, "-" )
             names << name
           else
             seqs[name] = seqs[name]+seq.gsub( /\./, "-" )
           end
           maxnlen = [maxnlen, name.length].max
+        elsif line =~ /^\s+$/
+          local_names = Hash.new
         end
+        i+=1
       end
+     # seqs.each_key do |key|
+     #   puts "#{key} => #{seqs[key].length} : #{seqs.size}"
+     # end
       seqs.each_key do |key|
+     #   puts "#{len} : #{seqs[key].length}"
         if len.nil?
           len = seqs[key].length
         elsif len != seqs[key].length

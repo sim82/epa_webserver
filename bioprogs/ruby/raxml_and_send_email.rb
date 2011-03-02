@@ -65,7 +65,7 @@ class RaxmlAndSendEmail
       send_email
     end
     system "qstat -f > #{RAILS_ROOT}/tmp/files/qstat.log" #update the server capacity utilisation after finishing
-    puts "done!"
+    puts "finished submission!"
   end
 
   def options_parser!(opts)

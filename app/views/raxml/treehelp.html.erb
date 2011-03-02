@@ -8,6 +8,17 @@
     <h1>Archaeopteryx Treeviewer Help</h1>
     <p>We provide a brief overview of some relevant Archaeopteryx Treeviewer features below.
 For a more detailed description, please refer to the Archaeopteryx project web-site <a href="http://www.phylosoft.org/archaeopteryx/" onclick="window.open(this.href, '_blank', 'toolbar=yes,location=yes,directories=yes,resizable=yes,scrollbars=yes, width=800, height=600'); return false;">http://www.phylosoft.org/archaeopteryx</a>.</p>
+    <p><u>Attention!</u> The features listed below are not part of the original Archaeopteryx treeviewer and were added subsequently:</p>
+      <ul>
+        <li>Colorize Branches with different scorings</li>
+        <li>Mouse rollover histograms</li>
+        <li>Branchdata pop-ups</li>
+        <li>Branch labels</li>
+        <li>Node width</li>
+      </ul>
+    <p>
+      If you have questions, proposals or other concerns regarding these points, feel free to contact us via the "Contact" form. 
+    </p>
     <div id="treeviewer">
       <div id="part">
       <h2>The Treeviewer</h2>
@@ -24,7 +35,13 @@ For a more detailed description, please refer to the Archaeopteryx project web-s
           <h4>Rollover</h4>
           <p> Aktivates the mouse over function for the tree. </p>
           <h4>Colorize Branches</h4>
-          <p>Assign colors to branches based on diversity measure. The coloring represents the mean value of the confidences off all placements on that branch. The confidences correspond to the diversity scoring used by Pplacer, which measures the spreading of the query sequence within the tree. A brighter green means a very high mean confidence on that branch. A bright red means the opposite.</p>
+          <p>Assign colors to branches based on diversity measures. The coloring represents the mean value of the confidences off all placements on that branch. The confidences correspond to the diversity scorings selected beneath. </p>
+          <ul><li><b>QSBI</b> - A prototype diversity measure that scores for every branch, if the placements distribution in the left and right subtree of a query sequence is better than expected. The mean of all query sequences is taken as score. Green means that the placement distributions in the left and right subtree is significantly different from what has been expected. </li>
+          <li><b>EDPL</b> - Measures the spreading of the query sequence within the tree. A brighter green means a very high mean confidence on that branch. A bright red means the opposite. The slider allows a manual adjustment of the cutoff.</li>
+          </ul>
+          <p>
+          All measurements can be combined. 
+          </p> 
           <h4>Use Branch-Width</h4>
           <p>Display the fraction of reads that have been placed into a branch by means of a relative branch width.</p>
           <h4>Use Node-Width</h4>

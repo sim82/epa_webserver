@@ -87,8 +87,13 @@ class Raxml < ActiveRecord::Base
 
   ## Saves the Input files on the job directory on disk 
   def saveOnDisk(data,path)
-    #puts data
-    File.open(path,'wb'){|f| f.write(data.join)}
+    if  data.instance_of?(Array)
+        File.open(path,'wb'){|f| f.write(data.join)}
+    elsif data.instance_of?(String)
+      File.open(path,'wb'){|f| f.write(data)}
+    else
+      raise "Error: Unknown Datatype"
+    end
   end
 
   ## collects the options for "raxml_and_send_email.rb" including the options for all following processing steps (RAxML, Uclust,Hmmer) and builds a shell file that is submited in the Batch system. 
@@ -178,6 +183,25 @@ class Raxml < ActiveRecord::Base
       return $1.to_i
     else
       return 1
+    end
+  end
+
+  # find_first
+  def self.findWithException(*args)
+    options = args.extract_options!
+    rax = nil
+ 
+   
+    case args.first
+    when :first then rax = find(:first,options)
+    when :last  then rax = find(:last, options)
+    when :all   then rax = find(:all, options)
+    else             rax = find(args, options)
+    end
+    if rax.nil?
+      raise ActiveRecord::RecordNotFound
+    else
+      return rax
     end
   end
 

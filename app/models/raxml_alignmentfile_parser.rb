@@ -6,8 +6,19 @@ class RaxmlAlignmentfileParser
   
 attr_reader :format, :valid_format, :error ,:data , :ali_length
   def initialize(stream)
-    @filename = stream.original_filename
-    @data = stream.readlines 
+    @filename = ""
+    @data = []
+    if stream.instance_of?(String) #because of testing
+      if stream =~ /\S+\/(\w+\.phylip)$/
+        @filename = $1
+      end
+      f = File.open(stream,'r')
+      @data = f.readlines
+      f.close
+    else
+      @filename = stream.original_filename
+      @data = stream.readlines 
+    end
     @format = "unk"
     @valid_format = false
     @error = ""
@@ -28,17 +39,21 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
     i = 0
     while i < @data.size
 
-      if @data[i] =~ /^>/ && @data[i+1]=~ /^([A-Z\-]+)/ #fasta format?
+      if @data[i] =~ /^>/ && @data[i+1]=~ /^([A-Z\-]+)\s*$/ #fasta format?
         @format = "fas"
+        @data[i+1].gsub!(/\./,"-")
         @valid_format = true
         j = i+2
         while j < @data.size
-          if !(@data[j] =~ /^[A-Z\-]+/ || (@data[j] =~  /^>/ && @data[j+1]=~ /^[A-Z\-]+/))
+          if !(@data[j] =~ /^[A-Z\-]+\s*$/ || (@data[j] =~  /^>/ && @data[j+1]=~ /^[A-Z\-]+\s*$/))
             @format = "unk"
             @valid_format = false
             @error = "#{message} line: #{j}\n *#{@data[j]}*"
             return
+          elsif @data[j] =~ /^[A-Z\-]+\s*$/
+            @data[j].gsub!(/\./,"-")
           end
+            
         j = j+1
         end
         @data = FastaToPhylip.new(@data).phylip.join("\n")
@@ -48,6 +63,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
       elsif @data[i] =~ /\s*\d+\s+\d+/  #phylip format?
         @format = "phl"
         @valid_format = true
+        checkUniquenessOfNames
         checkPhylipFormatWithRaxml
         break
 
@@ -61,6 +77,62 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length
       i = i+1
     end
   end
+
+  private
+  def checkUniquenessOfNames
+    names = {}
+    seqs = 0;
+    seq_len = 0;
+    read_names = false
+    @data.each do |line|
+      if line =~ /\s*(\d+)\s+(\d+)/
+        seqs = $1.to_i
+        seq_len = $2.to_i
+      elsif line =~  /^\s+$/
+        #all names have been read, quit procedure
+        if read_names
+          return
+        end
+      elsif line =~ /\s*\S+\s*/ 
+        read_names = true  
+        s = line.gsub(/\s/, "")
+        # check if line length without whitespaces matches the sequence length given 
+        if s.length > seq_len  # Taxon and sequence in the line
+          if line =~ /^\s*(\S+)\s+/
+            name = $1
+            if names[name].nil?
+              names[name] = 1
+            else
+              names[name] += 1
+              line.sub!(/^\s*(\S+)/,name+"_"+names[name].to_s)
+              "renamed #{name} to #{name+"_"+names[name].to_s}"
+            end
+          else
+             @error = "ERROR: couldn't parse #{line}"
+             @valid_format = false
+          end
+        elsif s.length < seq_len # Only Taxon in the line
+          if line =~ /^\s*(\S+)\s*/
+            name = $1
+            if names[name].nil?
+              names[name] = 1
+            else
+              names[name] += 1
+              line.sub!(/^\s*(\S+)/,name+"_"+names[name].to_s)
+              puts "renamed #{name} to #{name+"_"+names[name].to_s}"
+            end
+          else
+            @error =  "ERROR: couldn't parse #{line}"
+            @valid_format = false
+          end
+        else # Only Sequence in the line
+          #do nothing
+        end
+        
+      end
+    end #end each
+  end
+
 
   private
   def checkPhylipFormatWithRaxml
