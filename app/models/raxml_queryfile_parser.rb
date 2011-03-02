@@ -3,8 +3,20 @@ class RaxmlQueryfileParser
   attr_reader :data, :valid_format, :error  
 
   def initialize(stream)
-    @filename = stream.original_filename
-    @data = stream.readlines
+    @filename = ""
+    @data = []
+    if stream.instance_of?(String) #because of testing
+      if stream =~ /\S+\/(\w+\.phylip)$/
+        @filename = $1
+      end
+      f = File.open(stream,'r')
+      @data = f.readlines
+      f.close
+    else
+      @filename = stream.original_filename
+      @data = stream.readlines 
+    end
+
     @error = ""
     @valid_format = false
     check_format

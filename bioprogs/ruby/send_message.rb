@@ -56,13 +56,14 @@ class SendMessage
     @email_address1 = "Denis.Krompass@campus.lmu.de"
     @email_address2 = "stamatak@in.tum.de"
     @email_address3 = "bergers@in.tum.de"
+    @email_address4 = "raxml@h-its.org"
     send_email
     
   end
   ## send email to @email_addressesX, (Alexi,Simon,Denis)
   def send_email
     Net::SMTP.start('localhost', 25) do |smtp|
-      smtp.open_message_stream("#{ENV['SERVER_NAME']}", @email_address1) do |f|
+      smtp.open_message_stream("#{ENV['SERVER_NAME']}", @email_address4) do |f|
         
         f.puts "From: RAxMLWS.Contact"
         
