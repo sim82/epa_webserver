@@ -52,7 +52,13 @@ class RaxmlController < ApplicationController
     heuristics = ["MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
     heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
-    heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
+    heuristics_values.each do |h| 
+      if h.eql?("1/16")
+         @heuristics_values = @heuristics_values+"<option selected=\"selected\">#{h}</option>"
+      else
+        @heuristics_values = @heuristics_values+"<option>#{h}</option>"
+      end
+    end
     
     getInfo
     
@@ -72,8 +78,13 @@ class RaxmlController < ApplicationController
     heuristics = ["MP","ML"]
     heuristics.each {|h| @heuristics = @heuristics+"<option>#{h}</option>"}
     heuristics_values = ["1/2","1/4","1/8","1/16","1/32","1/64"]
-    heuristics_values.each {|h| @heuristics_values = @heuristics_values+"<option>#{h}</option>"}
-    
+    heuristics_values.each do |h| 
+      if h.eql?("1/16")
+        @heuristics_values = @heuristics_values+"<option selected=\"selected\">#{h}</option>"
+      else
+        @heuristics_values = @heuristics_values+"<option>#{h}</option>"
+      end
+    end
     getInfo
     
   end
@@ -123,7 +134,7 @@ class RaxmlController < ApplicationController
     @parfile = ""
     @outfile = ""
     @query = ""
-    @speed = params[:speed][:speed]
+    @speed = params[:chSpeed]
     @substmodel = ""
     @matrix = nil
     @sm_float = nil
@@ -183,6 +194,12 @@ class RaxmlController < ApplicationController
       if !(@use_clustering.eql?("T"))
         @use_clustering ="F"
       end
+    end
+
+    if @speed.eql?("T")
+      @speed = "y"
+    else
+      @speed = "v"
     end
 
     # Use heuristics?

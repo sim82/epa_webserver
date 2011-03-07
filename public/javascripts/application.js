@@ -14,15 +14,51 @@ function optionalButton(id,name){
                   
 }
 
-function optionalCheckboxElements(id1,name1,id2,name2){
-    var vis = document.getElementById(name1);
-    if (vis.checked){
-        document.getElementById(id1).style.display = 'block';
-        document.getElementById(id2).style.display = 'none';
-        document.getElementById(name2).checked = false;
+function optionalCheckboxElementsSpeed(speed_id,speed_name,boot_id,boot_name,heu_id,heu_name){
+    var speed = document.getElementById(speed_name);
+    var bootstrap = document.getElementById(boot_name);
+    var heuristic = document.getElementById(heu_name);
+
+    // if Fast is checked then uncheck Heuristics
+    if (speed.checked){
+        document.getElementById(heu_name).checked = false;
+        document.getElementById(heu_id).style.display = 'none';
     }
+}
+
+function optionalCheckboxElementsHeuristics(speed_id,speed_name,boot_id,boot_name,heu_id,heu_name){
+    var speed = document.getElementById(speed_name);
+    var bootstrap = document.getElementById(boot_name);
+    var heuristic = document.getElementById(heu_name);
+     // if Heuristics is checked, then uncheck Bootstrapping and Fast
+    if (heuristic.checked){
+        document.getElementById(heu_id).style.display = 'block';
+        document.getElementById(boot_id).style.display = 'none';
+        document.getElementById(heu_name).checked = true;
+        document.getElementById(boot_name).checked = false;
+        document.getElementById(speed_name).checked = false;
+    }
+    // if Heuristics is unchecked, hide
     else{
-        document.getElementById(id1).style.display = 'none';
+        document.getElementById(heu_id).style.display = 'none';
+        document.getElementById(heu_name).checked = false;
+    }
+}
+
+function optionalCheckboxElementsBootstrap(speed_id,speed_name,boot_id,boot_name,heu_id,heu_name){
+    var speed = document.getElementById(speed_name);
+    var bootstrap = document.getElementById(boot_name);
+    var heuristic = document.getElementById(heu_name);
+    // if Bootstrapping is checked, then uncheck Heuristics
+    if(bootstrap.checked){
+        document.getElementById(boot_id).style.display = 'block';
+        document.getElementById(heu_id).style.display = 'none';
+        document.getElementById(heu_name).checked = false;
+    } 
+    // if Bootstrapping is unchecked, hide
+    else{
+        document.getElementById(boot_id).style.display = 'none';
+        document.getElementById(boot_name).checked = false;
     }
 }
 
