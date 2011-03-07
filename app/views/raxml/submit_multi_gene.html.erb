@@ -29,7 +29,7 @@
         <div id="help_header">
           Alignmentfile:
         </div>
-        Upload a multi gene reference alignment with aligned query sequences in FASTA or PHYLIP format. If the query sequences are not aligned to the reference alignment, please check the <i>"Upload unaligned reads"</i> button below and upload the query reads separately.
+        Upload a multi gene reference alignment with aligned query sequences in FASTA or PHYLIP format. If the query sequences are not aligned to the reference alignment, please check the <i>"Upload unaligned reads"</i> button below and upload the query reads separately. <u>The server will automatically rename taxa if they are not unique within the alignment do to PHYLIP format conversion tools that restrict taxa names to 10 characters only.</u>
       </div>
     </p>
   </div>
@@ -98,17 +98,19 @@
     </div>
   </div>
 </div>
+
 <!-- Select speed -->
 <div id="block">
   <p><label for = "speed">Fast</label>: 
-    <%= check_box('speed', 'speed', {:checked=>'checked'} ,checked_value="y", unchecked_value="v")%>
-  </p>
+    <input id="chSpeed" name="chSpeed" type="checkbox" value="T" checked ="checked" onclick="optionalCheckboxElementsSpeed('chSpeed','chSpeed','bootstrap', 'chBoot', 'heuristic','chHeu')"/>
+    <!--   <%= check_box('speed', 'speed', {:checked=>'checked'} ,checked_value="y", unchecked_value="v")%>  -->
+    
+    </p>
 </div>
-
 
 <div id="block">
   <!-- Select bootstrapping -->
-  Use Bootstrapping <input id="chBoot" name="chBoot" type="checkbox" value="T" onclick="optionalCheckboxElements('bootstrap','chBoot','heuristic','chHeu')"/>
+  Use Bootstrapping <input id="chBoot" name="chBoot" type="checkbox" value="T" onclick="optionalCheckboxElementsBootstrap('chSpeed','chSpeed','bootstrap', 'chBoot', 'heuristic','chHeu')"/>
   <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_bootstrap',event)" onmouseout="hideTooltip('help_bootstrap')"/>
   <div class="help" id="help_bootstrap" style="visibility:hidden" >
     <div id="help_header">
@@ -117,7 +119,7 @@
     Check this button if you want to infer query placement uncertainty values via standard phylogenetic Bootstrapping.
   </div>
 
-  or  Use Heuristics <input id="chHeu" name="chHeu" type="checkbox" value="T" onclick="optionalCheckboxElements('heuristic','chHeu','bootstrap','chBoot')" />
+  or  Use Heuristics <input id="chHeu" name="chHeu" type="checkbox" value="T" onclick="optionalCheckboxElementsHeuristics('chSpeed','chSpeed','bootstrap', 'chBoot', 'heuristic','chHeu')" />
   <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_heuristics',event)" onmouseout="hideTooltip('help_heuristics')" />
   <div class="help" id="help_heuristics" style="visibility:hidden" >
     <div id="help_header">
