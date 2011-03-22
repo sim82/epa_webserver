@@ -62,7 +62,7 @@ class SendMessage
   end
   ## send email to @email_addressesX, (Alexi,Simon,Denis)
   def send_email
-    Net::SMTP.start('localhost', 25) do |smtp|
+    Net::SMTP.start(ENV['MAIL_SENDER'], 25) do |smtp|
       smtp.open_message_stream("#{ENV['SERVER_NAME']}", @email_address4,@email_address1,@email_address3) do |f|
         
         f.puts "From: RAxMLWS.Contact"
