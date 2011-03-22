@@ -136,7 +136,7 @@ class RaxmlAndSendEmail
     Dir.glob("#{@jobpath}RAxML_originalLabelledTree.#{@id}*"){|file|
       labeltree = file
       reftree = "#{@jobpath}tree_file"
-      command = "#{RAILS_ROOT}/bioprogs/java/treeMergeLengthsLabels.jar #{reftree} #{labeltree} > #{@jobpath}final_tree.tree"
+      command = "java -jar #{RAILS_ROOT}/bioprogs/java/treeMergeLengthsLabels.jar #{reftree} #{labeltree} > #{@jobpath}final_tree.tree"
       puts command
       system command
       @raxml_options["-t"] =  "#{@jobpath}final_tree.tree"

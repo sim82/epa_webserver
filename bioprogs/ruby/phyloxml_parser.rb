@@ -15,9 +15,6 @@ class PhyloXMLParser
     clades_open = 0
     clades_closed = 0
     formated = ""
-    puts "####################"
-    puts @data[0]
-    puts "####################"
     if !(@data[0].chomp.eql?("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"))
       return false
     end
