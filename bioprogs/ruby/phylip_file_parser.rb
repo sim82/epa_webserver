@@ -3,7 +3,7 @@
 class PhylipFileParser
 
   attr_reader :seqs
-  
+   
   def initialize(file)
     @seqs = Hash.new
     @gene = "";

@@ -12,23 +12,24 @@ SERVER_NAME = ENV['SERVER_NAME']
 
 ### Job processing script 
 ### Options:
-### -s     reference_alignmentfile
-### -n     outfile
-### -H     MP_value
-### -G     ML_value
-### -t     treefile
-### -f     speed 
-### -m     substitution_model
-### -x     random_seed
-### -N     number_of_bootstrap_samples
-### -q     partitionfile
-### -email email_address
-### -link  link_to_the_results
-### -id    jobid
-### -useQ  flag if a file with unaligned reads is present
-### -useCl flag clustering of the unaligned reads should be performed 
-### -mga   flag for using the multigene alignment pipeline
-### -T     number of cores used for the parallel version of raxml
+### -s      reference_alignmentfile
+### -n      outfile
+### -H      MP_value
+### -G      ML_value
+### -t      treefile
+### -f      speed 
+### -m      substitution_model
+### -x      random_seed
+### -N      number_of_bootstrap_samples
+### -q      partitionfile
+### -email  email_address
+### -link   link_to_the_results
+### -id     jobid
+### -useQ   flag if a file with unaligned reads is present
+### -useCl  flag clustering of the unaligned reads should be performed 
+### -mga    flag for using the multigene alignment pipeline
+### -T      number of cores used for the parallel version of raxml
+### -papara flag for using PaPaRa instead of Hmmalign
 
 class RaxmlAndSendEmail 
 
@@ -40,6 +41,7 @@ class RaxmlAndSendEmail
     @use_queryfile = false
     @use_clustering = false
     @multi_gene_alignment = false
+    @use_papara = false
     @link = ""
     @id = ""
     @test_mapping = false
@@ -55,7 +57,11 @@ class RaxmlAndSendEmail
         useUClust
       end
       if @use_queryfile
-        buildAlignmentWithHMMER
+        if @use_papara
+          buildAlignmentWithPaPaRa
+        else
+          buildAlignmentWithHMMER
+        end
       end
       runRAxML
     end
@@ -125,6 +131,8 @@ class RaxmlAndSendEmail
       elsif opts[i].eql?("-T")
         @raxml_options["-T"] = opts[i+1]
         i = i+1
+      elsif opts[i].eql?("-papara")
+        @use_papara = true
       else
         raise "ERROR in options_parser!, unknown option #{opts[i]}!"
       end
@@ -164,6 +172,17 @@ class RaxmlAndSendEmail
 
     # build fasta db file for each Gene and perform swps3
     gene_no = 0
+
+    # get genes sequence types from partitionfile
+    genes_types = []
+    par_data = File.open(partitionfile,'r').readlines
+    par_data.each do |line|
+      if line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+\s*-\s*\d+\s*,)*(\s+\d+\s*-\s*\d+\s*)$/ ||  line =~ /^([A-Z]+),\s+\S+\s+=(\s+\d+\s*-\s*\d+\\\d+,)*(\s+\d+\s*-\s*\d+\\\d+)$/
+        genes_types << $1
+      end
+    end
+    
+    # Dir glob provides the Gene files in the right order
     Dir.glob(alifile+".GENE.*"){|genefile|
       fasta_db_file = File.new(@jobpath+"GENE#{gene_no}_db.fas", 'w')
       gene = PhylipFileParser.new(genefile)
@@ -185,7 +204,11 @@ class RaxmlAndSendEmail
         query_seq.write(">#{k}\n#{query_sequences[k]}")
         query_seq.close
         swps3_out = "#{@jobpath}swps3.out"
-        command = "#{RAILS_ROOT}/bioprogs/swps3/swps3 #{RAILS_ROOT}/bioprogs/swps3/matrices/blosum62.mat #{query_seq.path} #{fasta_db_file.path} | sort -nr | head -n 1 > #{swps3_out} 2>&1" 
+        if genes_types[gene_no] =~/[Dd][Nn][Aa]/
+          command = "#{RAILS_ROOT}/bioprogs/swps3/swps3 -i -5 -e -2 #{RAILS_ROOT}/bioprogs/swps3/matrices/dna_matrix.mat #{query_seq.path} #{fasta_db_file.path} | sort -nr | head -n 1 > #{swps3_out} 2>&1" 
+        else
+          command = "#{RAILS_ROOT}/bioprogs/swps3/swps3 #{RAILS_ROOT}/bioprogs/swps3/matrices/blosum62.mat #{query_seq.path} #{fasta_db_file.path} | sort -nr | head -n 1 > #{swps3_out} 2>&1" 
+        end
         system command
         # collect query readX x GeneY maximum score
         scorefile = File.open(swps3_out,'r')
@@ -290,6 +313,7 @@ class RaxmlAndSendEmail
     system command
     ref = Reformat.new(outfile+".fas")
     ref.exportClusterRepresentatives!
+    @queryfile = outfile+".fas"
     ref.writeToFile(@queryfile)
   end
 
@@ -307,6 +331,13 @@ class RaxmlAndSendEmail
     ref = Reformat.new("#{@jobpath}alignment_file2.sto")
     ref.reformatToPhylip
     ref.writeToFile(@raxml_options["-s"])
+  end
+
+  def buildAlignmentWithPaPaRa
+    command = "cd #{RAILS_ROOT}/public/jobs/#{@id}; #{RAILS_ROOT}/bioprogs/papara_ts/raxmlHPC -f X -m GTRGAMMA -t #{@raxml_options['-t']} -s #{@raxml_options['-s']} -X #{@queryfile} -n papara "
+    puts command
+    system command
+    @raxml_options["-s"] = @jobpath+"RAxML_palign.papara"
   end
 
   def runRAxML

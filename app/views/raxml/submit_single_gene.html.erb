@@ -61,6 +61,12 @@
     </div>
     Check this box if you want the web-server to automatically align your reads to the full-length reference sequence alignment using hmmalign. In the case that you have a huge number of reads you may then also chose the option <i>"Cluster reads"</i>. The aligning is then only performed for consensus reads that are built using RC Edgar's uclust program   
   </div>
+  <div class="help" id="help_papara" style="visibility:hidden" >
+    <div id="help_header">
+      PaPaRa:
+    </div>
+    PaPaRa Description   
+  </div>
 
   <div class="optionLevel1"  id="queryfile" style="display:none">
     <p><label for="raxml_readfile">Select query file</label> : 
@@ -68,6 +74,12 @@
         <%= file_field 'raxml', 'queryfile' %>
       </div>
     </p>
+    <div class="optionLevel1" id="ppr" >Align with PaPaRa <%= check_box_tag "papara", "T"%>
+      <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_papara',event)" onmouseout="hideTooltip('help_papara')"/>
+      <div class="help" id="help_papara" style="visibility:hidden" >
+       
+      </div>
+    </div>
     <div class="optionLevel1" >Cluster reads <%= check_box_tag "cluster", "T"%></div>
   </div>
 </div>
@@ -77,11 +89,11 @@
   <div id="query_type">
     <p><label for = "query"> Alignment Data Type: </label>
       
-      <input  id="query_DNA" name="query" type="radio" value="DNA" checked="checked" onclick="document.getElementById('DNA').style.display='block';document.getElementById('AA').style.display='none' ; document.getElementById('PAR').style.display='none'" />DNA
+      <input  id="query_DNA" name="query" type="radio" value="DNA" checked="checked" onclick="document.getElementById('DNA').style.display='block';document.getElementById('AA').style.display='none' ; document.getElementById('PAR').style.display='none'; document.getElementById('ppr').style.display='block'" />DNA
       
-      <input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='block'; document.getElementById('PAR').style.display='none'"/>AA
+      <input  id="query_AA" name="query" type="radio" value="AA"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='block'; document.getElementById('PAR').style.display='none'; document.getElementById('ppr').style.display='none'"/>AA
       
-      <input  id="query_PAR" name="query" type="radio" value="PAR"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='none'; document.getElementById('PAR').style.display='block'"/>PARTIONED 
+      <input  id="query_PAR" name="query" type="radio" value="PAR"   onclick="document.getElementById('DNA').style.display='none';document.getElementById('AA').style.display='none'; document.getElementById('PAR').style.display='block'; document.getElementById('ppr').style.display='none'"/>PARTIONED 
       <img src="/images/helpbutton.jpg" width="15" height="15" onmouseover="showTooltip('help_input',event)" onmouseout="hideTooltip('help_input')"/>
       <div class="help" id="help_input" style="visibility:hidden" >
         <div id="help_header">

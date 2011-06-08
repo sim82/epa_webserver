@@ -132,6 +132,9 @@ class Raxml < ActiveRecord::Base
     if self.mga.eql?("T")
       opts["-mga"] = ""
     end
+    if self.use_papara.eql?("T")
+      opts["-papara"] = ""
+    end
     cores = parseDescription(self.job_description)
     if cores > 1
       opts["-T"] = cores

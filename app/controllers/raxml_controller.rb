@@ -5,6 +5,7 @@ class RaxmlController < ApplicationController
     @aa_model_options = ""
     @aa_matrices = ""
     @par_model_options  =""
+    @model_options = ""
     @heuristics =""
     @heuristics_values =""
     @ip_counter = 0;
@@ -120,6 +121,8 @@ class RaxmlController < ApplicationController
     @aa_model_options = ""
     @aa_matrices = ""
     @par_model_options  =""
+    @model_options = ""
+    @matrices = ""
     @heuristics =""
     @heuristics_values =""
     @ip_counter = 0;
@@ -141,6 +144,7 @@ class RaxmlController < ApplicationController
     @use_queryfile = params[:qfile]
     @use_clustering = params[:cluster]
     @use_bootstrap = params[:chBoot]
+    @use_papara = params[:papara]
     @b_random_seed = 1234
     @b_runs = 100
     @use_heuristic = params[:chHeu]
@@ -155,6 +159,7 @@ class RaxmlController < ApplicationController
     # Multi gene mode?
     if params[:modus].eql?("mga")
       @mga = "T"
+      initialize_options_mga
     end
 
     # if multi gene mode
@@ -184,12 +189,18 @@ class RaxmlController < ApplicationController
         @parfile = params[:raxml][:parfile]
       end
 
+      #check if papara is selected and the input is DNA
+      if !@use_papara.eql?("T") || !@query.eql?("DNA")
+        @use_papara = "F"
+      end
+
       # Upload a query read file?
       if @use_queryfile.eql?("T")
         @queryfile = params[:raxml][:queryfile]
       else
         @use_queryfile = "F"
       end
+
       # Cluster uploded reads?
       if !(@use_clustering.eql?("T"))
         @use_clustering ="F"
@@ -219,7 +230,7 @@ class RaxmlController < ApplicationController
     end
    
      buildJobDir
-    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => @treefile, :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering, :jobid => @jobid, :user_ip => @ip, :job_description => @job_description, :status => "running" , :mga => @mga})
+    @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => @treefile, :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering, :jobid => @jobid, :user_ip => @ip, :job_description => @job_description, :status => "running" , :mga => @mga, :use_papara => @use_papara})
     
     
     if @raxml.save

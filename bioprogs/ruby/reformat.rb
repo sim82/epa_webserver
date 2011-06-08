@@ -18,7 +18,7 @@ attr_accessor :format
         while  i < @data.size
           if @data[i] =~ /^>/
             i = i+1
-            while @data[i]=~/^[A-Za-z\-]+$/
+            while i < @data.size && @data[i]=~/^[A-Za-z\-]+$/
               i = i+1
             end
           else
@@ -106,7 +106,7 @@ attr_accessor :format
       end
       @data << "//"
     else
-      message =  "Cannot convert #{@format} to Phylip format! Following formats a supported:"
+      message =  "Cannot convert #{@format} to Stockholm format! Following formats a supported:"
       supported.each {|s| message = message+" "+s}
       raise message
     end
