@@ -49,7 +49,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length, :log
           if !(@data[j] =~ /^[A-Z\-]+\s*$/ || (@data[j] =~  /^>/ && @data[j+1]=~ /^[A-Z\-]+\s*$/))
             @format = "unk"
             @valid_format = false
-            @error = "#{message} line: #{j}\n *#{@data[j]}*"
+            @error = "#{@message} line #{j}: *#{@data[j]}*"
             return
           elsif @data[j] =~ /^[A-Z\-]+\s*$/
             @data[j].gsub!(/\./,"-")

@@ -92,6 +92,7 @@ class RaxmlPartitionfileParser
   end
 
   def getRaxmlModelParameters
+    n = 0
     @data.each do |line|
       if line =~ /^\s*$/
         
@@ -101,6 +102,7 @@ class RaxmlPartitionfileParser
         @error = "Invalid partitionfile format! \n ParserError :: #{@filename} line: #{n} => #{line}"
         return
       end
+      n = n+1
     end
   end
 end

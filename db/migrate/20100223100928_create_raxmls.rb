@@ -4,7 +4,7 @@ class CreateRaxmls < ActiveRecord::Migration
 
       t.string :query, :alifile, :treefile, :outfile, :substmodel, :speed, :heuristic, :h_value, :email ,:errorfile ,:parfile , :queryfile ,:jobid, :user_ip, :job_description
       t.integer :b_random_seed, :b_runs 
-      t.string :use_heuristic, :use_bootstrap , :use_queryfile, :use_clustering, :mga, :default => 'F' , :limit => 1
+      t.string :use_heuristic, :use_bootstrap , :use_queryfile, :use_clustering, :mga, :use_papara, :default => 'F' , :limit => 1
       t.string :status, :limit => 7
       t.timestamps
     end
