@@ -305,16 +305,17 @@ class RaxmlAndSendEmail
   
   def useUClust
     outfile = @jobpath+"cluster"
-    command = "#{RAILS_ROOT}/bioprogs/uclust/uclust32 --input #{@queryfile}  --uc #{outfile}.uc --id 0.90 --usersort 2>&1"
+    command = "#{RAILS_ROOT}/bioprogs/uclust/uclust32 --cluster #{@queryfile}  --uc #{outfile}.uc --id 0.90 --usersort --seedsout #{outfile}.fas 2>&1"
     puts command
     system command
-    command = "#{RAILS_ROOT}/bioprogs/uclust/uclust32 --uc2fasta #{outfile}.uc --input #{@queryfile} --output #{outfile}.fas  2>&1"
-    puts command
-    system command
-    ref = Reformat.new(outfile+".fas")
-    ref.exportClusterRepresentatives!
+    # Not necessary anymore in uclust version 4.2
+   # command = "#{RAILS_ROOT}/bioprogs/uclust/uclust32 --uc2fasta #{outfile}.uc --input #{@queryfile} --output #{outfile}.fas  2>&1"
+   # puts command
+   # system command
+   # ref = Reformat.new(outfile+".fas")
+   # ref.exportClusterRepresentatives!
     @queryfile = outfile+".fas"
-    ref.writeToFile(@queryfile)
+   # ref.writeToFile(@queryfile)
   end
 
   def buildAlignmentWithHMMER
@@ -378,7 +379,7 @@ class RaxmlAndSendEmail
   end
 
   def send_email
-    Net::SMTP.start('localhost', 25) do |smtp|
+    Net::SMTP.start(ENV['MAILSERVICE_ADDRESS'], 25) do |smtp|
       smtp.open_message_stream("#{ENV['SERVER_NAME']}", @email_address) do |f|
         
         f.puts "From: #{ENV['SERVER_NAME']}"
