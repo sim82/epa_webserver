@@ -24,7 +24,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length, :log
     @valid_format = false
     @error = ""
     @message = "Invalid alignmentfile format!(Only Fasta and Phylip alignment formats are allowed)  ParserError :: #{@filename}<br></br>"
-    check_format   
+    check_format
     @ali_length = 0
     if @valid_format
       @data.each do |line|
@@ -39,7 +39,7 @@ attr_reader :format, :valid_format, :error ,:data , :ali_length, :log
   def check_format
     i = 0
     while i < @data.size
-
+      
       if @data[i] =~ /^>/ && @data[i+1]=~ /^([A-Z\-]+)\s*$/ #fasta format?
         @format = "fas"
         @data[i+1].gsub!(/\./,"-")
