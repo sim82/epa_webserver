@@ -232,10 +232,9 @@ class RaxmlController < ApplicationController
      buildJobDir
     @raxml = Raxml.new({ :alifile =>params[:raxml][:alifile] , :query => @query, :outfile => @outfile, :speed => @speed, :substmodel => @substmodel, :heuristic => @heuristic, :treefile => @treefile, :email => @email, :h_value => @h_value, :errorfile => "", :use_heuristic => @use_heuristic, :use_bootstrap => @use_bootstrap, :b_random_seed => @b_random_seed, :b_runs => @b_runs , :parfile => @parfile, :use_queryfile => @use_queryfile, :queryfile => @queryfile, :use_clustering => @use_clustering, :jobid => @jobid, :user_ip => @ip, :job_description => @job_description, :status => "running" , :mga => @mga, :use_papara => @use_papara})
     
-    
     if @raxml.save
       @raxml.update_attribute(:outfile,"#{@raxml.jobid}")
-      link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.jobid , :only_path => true
+      link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.jobid 
       @raxml.execude(link,@raxml.jobid.to_s)
 
       ## save userinfos

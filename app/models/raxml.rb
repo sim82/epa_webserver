@@ -51,9 +51,9 @@ class Raxml < ActiveRecord::Base
       a = RaxmlAlignmentfileParser.new(self.alifile)
       errors.add(:alifile, a.error) if !(a.valid_format)
       if a.valid_format
-          alifile_path =  jobdir+"alignment_file"
-          saveOnDisk(a.data,alifile_path)
-          self.alifile = alifile_path
+        alifile_path =  jobdir+"alignment_file"
+        saveOnDisk(a.data,alifile_path)
+        self.alifile = alifile_path
       end
       
       t = RaxmlTreefileParser.new(self.treefile)
