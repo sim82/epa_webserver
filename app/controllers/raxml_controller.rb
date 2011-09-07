@@ -235,7 +235,7 @@ class RaxmlController < ApplicationController
     
     if @raxml.save
       @raxml.update_attribute(:outfile,"#{@raxml.jobid}")
-      link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.jobid
+      link = url_for :controller => 'raxml', :action => 'results', :id => @raxml.jobid , :only_path => true
       @raxml.execude(link,@raxml.jobid.to_s)
 
       ## save userinfos
